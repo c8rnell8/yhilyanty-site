@@ -1,0 +1,417 @@
+{
+  "Meta": {
+    "title": "YHILYANTY — Squad / Arma Reforger Community",
+    "description": "Ukrainian tactical clan. Squad. Arma Reforger. No toxic. Discipline, voice on comms, aimed fire."
+  },
+  "Nav": {
+    "home": "Home",
+    "join": "Join",
+    "roster": "Roster",
+    "merch": "Merch",
+    "bot": "Bot",
+    "admin": "Admin",
+    "login": "Sign in",
+    "loggedInAs": "Signed in as",
+    "adminPanel": "Admin panel",
+    "logout": "Sign out",
+    "discord": "Discord",
+    "menuOpen": "Open menu",
+    "menuClose": "Close menu",
+    "languageLabel": "Language"
+  },
+  "Hero": {
+    "tag": "[51.50N · 30.48E]",
+    "callsign": "CALLSIGN — UA-SQUAD",
+    "title": "We don't dodge. We hold the line.",
+    "subtitle": "Tactical clan playing Squad and Arma Reforger. Ukrainian voice channel, real ops every night, zero toxicity, zero randoms in the lineup.",
+    "ctaJoin": "Apply now",
+    "ctaDiscord": "Open Discord",
+    "stats": {
+      "members": "OPERATORS",
+      "ops": "OPS THIS MONTH",
+      "voice": "HOURS ON COMMS",
+      "wins": "WIN-RATE"
+    }
+  },
+  "About": {
+    "eyebrow": "001 / WHO WE ARE",
+    "title": "A community, not a random stack.",
+    "body": "We came together to play tactical shooters seriously, but not joylessly. Ukrainian on comms, adult roster, clear chain of command, and respect for each other's time. No 14-year-olds screaming into the mic — adults only.",
+    "bullets": [
+      "Voice channel: Ukrainian. Russian is fine, not punished, but the official language is Ukrainian.",
+      "Schedule: every night 19:00 to 23:00 Kyiv time. Weekends are raids.",
+      "Structure: Squad Lead, Fire Team Lead, Rifleman, Medic, Drone Op, Marksman.",
+      "Loud microphone and a working headset are mandatory. Push-to-talk."
+    ]
+  },
+  "Games": {
+    "eyebrow": "002 / OPERATIONAL THEATERS",
+    "title": "Two games. One approach.",
+    "subtitle": "Squad is the team's backbone, Arma Reforger covers large-scale 50+ player ops. We swap between them depending on mood and how many people are online.",
+    "squad": {
+      "name": "Squad",
+      "unit": "Ukraine Unity Frontline",
+      "unitShort": "UUF",
+      "discord": "https://discord.gg/uuf",
+      "tag": "Primary game",
+      "body": "100-player tactical shooter. We play on our own servers and on UA / EU milsim servers. We specialize in objective defense and coordinated assaults."
+    },
+    "arma": {
+      "name": "Arma Reforger",
+      "unit": "ArmA Unity Frontline",
+      "unitShort": "AUF",
+      "discord": "https://discord.gg/AUF",
+      "tag": "Sector activity",
+      "body": "Large operations with operational planning. Conflict, Game Master sessions, custom scenarios. Armor, air, artillery — all in one evening."
+    },
+    "unitJoin": "Join the alliance"
+  },
+  "Gallery": {
+    "eyebrow": "003 / BRANDING",
+    "title": "The U mark.",
+    "body": "We don't throw the trident around. Our mark is a stylized 'У', two rifles crossed, a recon drone above, the banner below. Black, white, yellow — clan colors.",
+    "orderButton": "Order",
+    "items": {
+      "flag": "Clan banner",
+      "mug": "Clan mug",
+      "patches": "PVC patches"
+    },
+    "itemTags": {
+      "flag": "90×60 cm · polyester",
+      "mug": "330 ml · ceramic",
+      "patches": "set of 3 · PVC + velcro"
+    }
+  },
+  "Merch": {
+    "eyebrow": "MERCH / ORDER",
+    "backToGallery": "← Back to gallery",
+    "price": "Price",
+    "shipping": "Nova Poshta delivery within Ukraine",
+    "specs": "Specs",
+    "formTitle": "Order details",
+    "formIntro": "Fill out the form — HQ will contact you in Discord to confirm payment and shipping.",
+    "discord": "Discord handle",
+    "discordPlaceholder": "name#0000 or @username",
+    "callsign": "Callsign (if any)",
+    "callsignPlaceholder": "UA-...",
+    "phone": "Phone number",
+    "phonePlaceholder": "+380 ...",
+    "city": "City + Nova Poshta branch",
+    "cityPlaceholder": "Kyiv, branch 12",
+    "qty": "Quantity",
+    "size": "Size",
+    "sizeNotApplicable": "N/A",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Anything HQ should know",
+    "submit": "Submit order",
+    "successTitle": "Order submitted",
+    "successBody": "HQ will contact you in Discord within 24 hours. Thanks for supporting the clan.",
+    "items": {
+      "flag": {
+        "title": "Clan banner",
+        "price": "350 ₴",
+        "description": "Polyester banner 90×60 cm with double-sided print. Black background, yellow 'У' mark, eyelets along the edge for mounting.",
+        "specs": [
+          "Material: polyester 110 g/m²",
+          "Size: 90 × 60 cm",
+          "Eyelets along the edges",
+          "Double-sided print"
+        ],
+        "sizes": ["60×90", "100×150"]
+      },
+      "mug": {
+        "title": "Clan mug",
+        "price": "280 ₴",
+        "description": "Ceramic mug 330 ml with sublimation print. Yellow 'У' on black glaze. Dishwasher-safe (hand wash recommended).",
+        "specs": [
+          "Volume: 330 ml",
+          "Material: ceramic + glaze",
+          "Print: sublimation",
+          "Dishwasher-safe"
+        ],
+        "sizes": ["330 ml"]
+      },
+      "patches": {
+        "title": "Patches (set of 3)",
+        "price": "120 ₴",
+        "description": "Set of three patches: 'У' mark, IFF marker, and text block. PVC with velcro backing, fade-resistant.",
+        "specs": [
+          "3 patches in the set",
+          "Material: PVC",
+          "Backing: velcro hook",
+          "Size: 50 × 70 mm"
+        ],
+        "sizes": ["Standard"]
+      }
+    }
+  },
+  "Codex": {
+    "eyebrow": "004 / CODE",
+    "title": "Four rules.",
+    "rules": [
+      {
+        "n": "01",
+        "title": "Team over frags",
+        "body": "Cover your brother — you're a hero. Win the K/D but lose the push? Worthless."
+      },
+      {
+        "n": "02",
+        "title": "No toxicity",
+        "body": "One warning and a reminder. Second — kick. There is no third."
+      },
+      {
+        "n": "03",
+        "title": "Voice on comms",
+        "body": "No mic = no tactics. No tactics = no Squad."
+      },
+      {
+        "n": "04",
+        "title": "Ukrainian first",
+        "body": "We don't ban Russian, but the official language is Ukrainian. Especially commands."
+      }
+    ]
+  },
+  "JoinCta": {
+    "title": "Ready to take a position?",
+    "subtitle": "Application goes through Discord. The intake bot is ours, the test interview is run by HQ.",
+    "primary": "Apply now",
+    "secondary": "Just lurk for now"
+  },
+  "Roster": {
+    "title": "Roster",
+    "subtitle": "Current personnel. Synced with Discord roles.",
+    "columns": {
+      "callsign": "Callsign",
+      "role": "Role",
+      "spec": "Specialization",
+      "voice": "Voice hours",
+      "since": "Member since"
+    },
+    "roles": {
+      "lead": "Squad Lead",
+      "ftl": "Fire Team Lead",
+      "medic": "Medic",
+      "marksman": "Marksman",
+      "rifleman": "Rifleman",
+      "drone": "Drone Op",
+      "armor": "Armor Crew"
+    },
+    "members": [
+      { "callsign": "@Hueta", "role": "lead", "spec": "Infantry / assault", "voice": 412, "since": "2024-08" },
+      { "callsign": "@Vasya", "role": "ftl", "spec": "Infantry / defense", "voice": 287, "since": "2024-09" },
+      { "callsign": "@Petya", "role": "medic", "spec": "Combat medic", "voice": 198, "since": "2024-10" },
+      { "callsign": "@Kola", "role": "marksman", "spec": "DMR / sniper", "voice": 156, "since": "2025-01" },
+      { "callsign": "@Drone", "role": "drone", "spec": "FPV / recon", "voice": 144, "since": "2025-02" },
+      { "callsign": "@Tank", "role": "armor", "spec": "Armored vehicles", "voice": 121, "since": "2025-03" },
+      { "callsign": "@Echo", "role": "rifleman", "spec": "Support", "voice": 88, "since": "2025-06" },
+      { "callsign": "@Bravo", "role": "rifleman", "spec": "AT / GL", "voice": 67, "since": "2025-09" }
+    ]
+  },
+  "Join": {
+    "eyebrow": "INTAKE",
+    "title": "Apply now.",
+    "subtitle": "Four steps. No 50-question survey, no map trivia.",
+    "steps": [
+      {
+        "n": "01",
+        "title": "Sign in with Discord",
+        "body": "Button below. We ask for your name, avatar, and your list of Discord servers. Nothing else. OAuth scope: identify."
+      },
+      {
+        "n": "02",
+        "title": "Join the server",
+        "body": "If you're not on the server yet, the button takes you there. Application can't proceed without it."
+      },
+      {
+        "n": "03",
+        "title": "Fill the brief",
+        "body": "Age, Squad / Arma experience, schedule, mic. No fields for unnecessary prose — write like radio."
+      },
+      {
+        "n": "04",
+        "title": "Trial op",
+        "body": "One evening with us in a custom match. We test the mic, command execution, coordination. Then a decision."
+      }
+    ],
+    "loginCta": "Sign in with Discord",
+    "loginNote": "Discord OAuth is in scaffold mode — needs CLIENT_ID wired on the server side. The button will tell you where to configure.",
+    "requirements": {
+      "title": "Requirements",
+      "items": [
+        "16+ years old",
+        "Ukrainian or Russian on comms",
+        "Working noise-free microphone",
+        "Squad and/or Arma Reforger owned",
+        "Available 2-3 evenings per week"
+      ]
+    }
+  },
+  "Admin": {
+    "eyebrow": "ADMIN PANEL",
+    "title": "Command post.",
+    "subtitle": "HQ access only. Discord-ID is checked against OWNER_DISCORD_ID on the server.",
+    "locked": {
+      "title": "Access denied",
+      "body": "Sign in with Discord using an HQ account. If you are HQ and still see this — check that your Discord-ID matches OWNER_DISCORD_ID in the env config."
+    },
+    "tiles": {
+      "applications": "Applications",
+      "applicationsBody": "New applications from the Join form. Approve / Reject / invite to trial op.",
+      "announcements": "Announcements",
+      "announcementsBody": "Text announcements on the landing and in Discord #announcements.",
+      "operations": "Operations",
+      "operationsBody": "Training and raid schedule. Syncs with Discord Events.",
+      "members": "Personnel",
+      "membersBody": "Grant / revoke roles, sync callsigns with Discord nicknames."
+    },
+    "preview": {
+      "title": "Preview — applications",
+      "subtitle": "Rendered from mock data. Real applications wire up once Discord-OAuth + Postgres are on.",
+      "columns": {
+        "callsign": "Callsign",
+        "age": "Age",
+        "exp": "Experience",
+        "status": "Status",
+        "actions": "Action"
+      },
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "interview": "Interview"
+      }
+    }
+  },
+  "BotPromo": {
+    "eyebrow": "005 / TOOLING",
+    "title": "The clan bot.",
+    "body": "In-house Discord bot for video work: GIFs from screencasts, multi-line captions, an in-chat editor with timeline and live preview — all without leaving Discord.",
+    "openButton": "Open the bot",
+    "viewCommands": "Commands",
+    "badge": "open source"
+  },
+  "Bot": {
+    "eyebrow": "CLAN BOT",
+    "title": "yhilbot.",
+    "subtitle": "Discord bot for video and screencasts. GIFs, captions, timeline editor — right inside chat, no external editors needed.",
+    "version": "v5.2 · modular",
+    "commandsTitle": "Commands",
+    "commands": [
+      {
+        "slash": "/gif",
+        "summary": "Convert video to GIF with quality and size control",
+        "detail": "Crop, resize, palette via PSR. FFmpeg under the hood."
+      },
+      {
+        "slash": "/caption",
+        "summary": "Add a meme-style caption to a video or GIF",
+        "detail": "Multi-line text, font and color presets. Safe input escaping."
+      },
+      {
+        "slash": "/edit",
+        "summary": "Interactive video editor: trim, text, blur, split",
+        "detail": "Graphical timeline, live preview, undo/redo, persistent sessions."
+      },
+      {
+        "slash": "/stats",
+        "summary": "Usage stats, uptime, system resources",
+        "detail": "CPU/RAM, render queue, active sessions, lifetime counters."
+      },
+      {
+        "slash": "/help",
+        "summary": "Help on commands and the system",
+        "detail": "Auto-detected NVENC, version, usage examples."
+      }
+    ],
+    "featuresTitle": "Highlights",
+    "features": [
+      "Timeline editor with live preview directly in Discord",
+      "NVENC support for GPU acceleration",
+      "Render semaphore so parallel renders don't murder the CPU",
+      "Read-only editors via join codes",
+      "Render cache invalidated by cursor edits",
+      "Modular architecture (Python 3.11+)"
+    ],
+    "techStack": "Stack",
+    "openOnGithub": "Open on GitHub",
+    "openInDiscord": "Open in Discord"
+  },
+  "Footer": {
+    "tagline": "Squad / Arma Reforger Community",
+    "discord": "Discord",
+    "github": "GitHub",
+    "rights": "All rights to the trident. Use of the 'У' mark — only with HQ permission."
+  },
+  "Auth": {
+    "signIn": "Sign in with Discord",
+    "signOut": "Sign out",
+    "loading": "Connecting..."
+  },
+  "Editor": {
+    "title": "Web editor",
+    "sessionId": "Session",
+    "backToHome": "← Home",
+    "timeline": "Timeline",
+    "inPoint": "In",
+    "outPoint": "Out",
+    "captions": "Text",
+    "addCaption": "Add text",
+    "captionText": "Text",
+    "captionColor": "Color",
+    "captionSize": "Size",
+    "captionBackground": "Background",
+    "bgNone": "None",
+    "bgBlack": "Black",
+    "bgWhite": "White",
+    "bgYellow": "Yellow",
+    "blurs": "Blur",
+    "addBlur": "Add blur",
+    "blurIntensity": "Intensity",
+    "crop": "Crop",
+    "enableCrop": "Enable crop",
+    "cropX": "X",
+    "cropY": "Y",
+    "cropW": "Width",
+    "cropH": "Height",
+    "speed": "Speed",
+    "output": "Output",
+    "format": "Format",
+    "formatMp4": "Video H.264",
+    "formatGif": "Animation",
+    "formatWebm": "Video VP9",
+    "fps": "Frames/s",
+    "maxWidth": "Max width",
+    "render": "Render",
+    "rendering": "Rendering…",
+    "rendered": "Rendered",
+    "failed": "Failed",
+    "download": "Download",
+    "copyLink": "Copy link",
+    "linkCopied": "Copied!",
+    "discardChanges": "Discard",
+    "duration": "Duration",
+    "resolution": "Resolution",
+    "fpsLabel": "FPS",
+    "sourceFile": "Source",
+    "statusUploaded": "Uploaded",
+    "statusEditing": "Editing",
+    "statusRendering": "Rendering",
+    "statusRendered": "Rendered",
+    "statusFailed": "Failed",
+    "botWillSendBack": "Bot will deliver the result back to Discord automatically.",
+    "remove": "Remove",
+    "posX": "X",
+    "posY": "Y",
+    "width": "Width",
+    "height": "Height",
+    "seek": "Seek",
+    "play": "Play",
+    "pause": "Pause",
+    "panel": "Panel",
+    "panelTrim": "Trim",
+    "panelText": "Text",
+    "panelBlur": "Blur",
+    "panelCrop": "Crop",
+    "panelSpeed": "Speed",
+    "panelOutput": "Export"
+  }
+}

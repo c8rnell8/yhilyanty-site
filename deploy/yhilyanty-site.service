@@ -1,0 +1,24 @@
+[Unit]
+Description=YHIL Clan Site (Next.js)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/yhilyanty-site
+EnvironmentFile=/opt/yhilyanty-site/.env.production
+ExecStart=/usr/bin/npm run start -- -p 3000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+# Hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/yhilyanty-site
+
+[Install]
+WantedBy=multi-user.target
