@@ -22,6 +22,7 @@ export const IMAGES_FILE = path.join(CMS_DIR, "images.json");
 export const LAYOUT_FILE = path.join(CMS_DIR, "layout.json");
 export const PAGES_FILE = path.join(CMS_DIR, "pages.json");
 export const NAV_FILE = path.join(CMS_DIR, "nav.json");
+export const MERCH_FILE = path.join(CMS_DIR, "merch.json");
 
 export type TextOverrides = Record<string, Record<string, string>>;
 /** Persisted shape: slot → string OR string[]; legacy single strings stay
@@ -71,6 +72,52 @@ export type NavItem = {
 export type NavOverrides = {
   navbar?: NavItem[] | null;
   footer?: NavItem[] | null;
+};
+
+/** Merch catalog item.
+ *  - `id` is the URL slug; for built-in items it is "flag" | "mug" | "patches"
+ *    and merging uses translation defaults for any field left blank.
+ *  - For custom items everything must be filled in CMS (otherwise the field
+ *    is just empty).
+ *  - `hidden:true` removes a default item from the catalog without deleting
+ *    its translations. */
+export type MerchItem = {
+  id: string;
+  isDefault?: boolean;
+  hidden?: boolean;
+  title?: Multi;
+  price?: string;
+  shortDesc?: Multi;
+  longDesc?: Multi;
+  /** Newline-separated bullets per locale. Empty = use defaults / no specs. */
+  specs?: Multi;
+  /** Comma-separated, e.g. "M, L, XL". Empty = use defaults / no sizes. */
+  sizes?: string;
+  /** Optional small badge override, e.g. "NEW". Free text per locale. */
+  badge?: Multi;
+  /** Optional code override (defaults to id.toUpperCase()). */
+  code?: string;
+};
+
+export type MerchStore = { items: MerchItem[] };
+
+/** Persisted shape of a single merch order under .merch-orders/<id>.json. */
+export type MerchOrderStatus = "new" | "in_progress" | "done" | "cancelled";
+export type MerchOrder = {
+  id: string;
+  createdAt: string;
+  item: string;
+  title: string;
+  price: string;
+  discord: string;
+  callsign?: string;
+  phone: string;
+  city: string;
+  qty: number;
+  size?: string;
+  notes?: string;
+  status?: MerchOrderStatus;
+  statusUpdatedAt?: string;
 };
 
 const mutexes = new Map<string, Promise<unknown>>();
@@ -390,4 +437,161 @@ export async function readNavOverrides(): Promise<NavOverrides> {
 
 export async function writeNavOverrides(o: NavOverrides): Promise<void> {
   await withMutex(NAV_FILE, () => writeJsonAtomic(NAV_FILE, o));
+}
+
+// ── Merch catalog overrides ──────────────────────────────────────────────────
+
+/** Built-in defaults — the 3 items whose translations live in messages files. */
+export const DEFAULT_MERCH_IDS = ["flag", "mug", "patches"] as const;
+export type DefaultMerchId = (typeof DEFAULT_MERCH_IDS)[number];
+
+/** Slug validator: lowercase letters / digits / dashes, 1..40 chars. */
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+export function isValidMerchId(id: string): boolean {
+  return SLUG_RE.test(id);
+}
+
+export async function readMerchStore(): Promise<MerchStore> {
+  const s = await readJson<MerchStore>(MERCH_FILE, { items: [] });
+  if (!Array.isArray(s.items)) return { items: [] };
+  return s;
+}
+
+export async function writeMerchStore(s: MerchStore): Promise<void> {
+  await withMutex(MERCH_FILE, () => writeJsonAtomic(MERCH_FILE, s));
+}
+
+export async function upsertMerchItem(item: MerchItem): Promise<MerchStore> {
+  return withMutex(MERCH_FILE, async () => {
+    const cur = await readMerchStore();
+    const idx = cur.items.findIndex((i) => i.id === item.id);
+    if (idx === -1) cur.items.push(item);
+    else cur.items[idx] = { ...cur.items[idx], ...item };
+    await writeJsonAtomic(MERCH_FILE, cur);
+    return cur;
+  });
+}
+
+export async function deleteMerchItem(id: string): Promise<MerchStore> {
+  return withMutex(MERCH_FILE, async () => {
+    const cur = await readMerchStore();
+    const isDefault = (DEFAULT_MERCH_IDS as readonly string[]).includes(id);
+    if (isDefault) {
+      // For built-ins we can't actually remove translations; mark hidden.
+      const idx = cur.items.findIndex((i) => i.id === id);
+      const next: MerchItem = { id, isDefault: true, hidden: true };
+      if (idx === -1) cur.items.push(next);
+      else cur.items[idx] = { ...cur.items[idx], ...next };
+    } else {
+      cur.items = cur.items.filter((i) => i.id !== id);
+    }
+    await writeJsonAtomic(MERCH_FILE, cur);
+    return cur;
+  });
+}
+
+/** Convenience: returns set of currently-known merch ids (defaults + custom),
+ *  excluding hidden defaults. Used to dynamically expand image-slot list. */
+export async function listVisibleMerchIds(): Promise<string[]> {
+  const store = await readMerchStore();
+  const out = new Set<string>(DEFAULT_MERCH_IDS as readonly string[]);
+  // Apply hides + add custom ids.
+  for (const it of store.items) {
+    if (it.hidden && (DEFAULT_MERCH_IDS as readonly string[]).includes(it.id)) {
+      out.delete(it.id);
+    }
+    if (!(DEFAULT_MERCH_IDS as readonly string[]).includes(it.id) && !it.hidden) {
+      out.add(it.id);
+    }
+  }
+  return Array.from(out);
+}
+
+// ── Merch orders ─────────────────────────────────────────────────────────────
+
+export const ORDERS_DIR =
+  process.env.MERCH_STORE_DIR || path.join(process.cwd(), ".merch-orders");
+
+async function ensureOrdersDir() {
+  await fs.mkdir(ORDERS_DIR, { recursive: true });
+}
+
+/** Read all order JSONs in $ORDERS_DIR, newest-first. */
+export async function readMerchOrders(): Promise<MerchOrder[]> {
+  await ensureOrdersDir();
+  let names: string[] = [];
+  try {
+    names = await fs.readdir(ORDERS_DIR);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error("orders:readdir_failed", e);
+    }
+    return [];
+  }
+  const out: MerchOrder[] = [];
+  for (const n of names) {
+    if (!n.endsWith(".json")) continue;
+    try {
+      const raw = await fs.readFile(path.join(ORDERS_DIR, n), "utf-8");
+      const parsed = JSON.parse(raw) as MerchOrder;
+      if (parsed && typeof parsed.id === "string") {
+        if (!parsed.status) parsed.status = "new";
+        out.push(parsed);
+      }
+    } catch (e) {
+      console.error("orders:read_failed", n, e);
+    }
+  }
+  out.sort((a, b) =>
+    (b.createdAt || "").localeCompare(a.createdAt || "")
+  );
+  return out;
+}
+
+export async function readMerchOrder(id: string): Promise<MerchOrder | null> {
+  if (!/^[a-zA-Z0-9_]+$/.test(id)) return null;
+  await ensureOrdersDir();
+  try {
+    const raw = await fs.readFile(path.join(ORDERS_DIR, `${id}.json`), "utf-8");
+    const parsed = JSON.parse(raw) as MerchOrder;
+    if (!parsed.status) parsed.status = "new";
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeMerchOrder(order: MerchOrder): Promise<void> {
+  await ensureOrdersDir();
+  if (!/^[a-zA-Z0-9_]+$/.test(order.id)) {
+    throw new Error(`bad order id: ${order.id}`);
+  }
+  const file = path.join(ORDERS_DIR, `${order.id}.json`);
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(tmp, JSON.stringify(order, null, 2), "utf8");
+  await fs.rename(tmp, file);
+}
+
+export async function setMerchOrderStatus(
+  id: string,
+  status: MerchOrderStatus
+): Promise<MerchOrder | null> {
+  const cur = await readMerchOrder(id);
+  if (!cur) return null;
+  cur.status = status;
+  cur.statusUpdatedAt = new Date().toISOString();
+  await writeMerchOrder(cur);
+  return cur;
+}
+
+export async function deleteMerchOrder(id: string): Promise<boolean> {
+  if (!/^[a-zA-Z0-9_]+$/.test(id)) return false;
+  await ensureOrdersDir();
+  try {
+    await fs.unlink(path.join(ORDERS_DIR, `${id}.json`));
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw e;
+  }
 }

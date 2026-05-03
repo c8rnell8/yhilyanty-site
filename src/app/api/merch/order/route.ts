@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 
-const ITEM_KEYS = ["flag", "mug", "patches"] as const;
-type ItemKey = (typeof ITEM_KEYS)[number];
+import {
+  isValidMerchId,
+  listVisibleMerchIds,
+  type MerchOrder,
+  writeMerchOrder,
+} from "@/lib/cms/store";
 
 type Body = {
   itemKey: string;
@@ -18,13 +20,6 @@ type Body = {
   notes: string;
 };
 
-function isItemKey(v: string): v is ItemKey {
-  return (ITEM_KEYS as readonly string[]).includes(v);
-}
-
-const STORE_DIR =
-  process.env.MERCH_STORE_DIR || path.join(process.cwd(), ".merch-orders");
-
 export async function POST(req: Request) {
   let body: Body;
   try {
@@ -33,7 +28,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!isItemKey(body.itemKey)) {
+  const itemKey = (body.itemKey || "").toString().toLowerCase();
+  if (!isValidMerchId(itemKey)) {
+    return NextResponse.json({ error: "Unknown item" }, { status: 400 });
+  }
+  const knownIds = await listVisibleMerchIds();
+  if (!knownIds.includes(itemKey)) {
     return NextResponse.json({ error: "Unknown item" }, { status: 400 });
   }
   if (!body.discord?.trim() || body.discord.length > 100) {
@@ -49,10 +49,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid quantity" }, { status: 400 });
   }
 
-  const order = {
+  const order: MerchOrder = {
     id: `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
-    item: body.itemKey,
+    item: itemKey,
     title: body.itemTitle?.slice(0, 200) || "",
     price: body.itemPrice?.slice(0, 50) || "",
     discord: body.discord.trim().slice(0, 100),
@@ -62,15 +62,11 @@ export async function POST(req: Request) {
     qty: Math.floor(body.qty),
     size: body.size?.slice(0, 50) || "",
     notes: body.notes?.slice(0, 1000) || "",
+    status: "new",
   };
 
   try {
-    await fs.mkdir(STORE_DIR, { recursive: true });
-    await fs.writeFile(
-      path.join(STORE_DIR, `${order.id}.json`),
-      JSON.stringify(order, null, 2),
-      "utf8"
-    );
+    await writeMerchOrder(order);
   } catch (e) {
     console.error("merch:write_failed", e);
     return NextResponse.json({ error: "Storage error" }, { status: 500 });

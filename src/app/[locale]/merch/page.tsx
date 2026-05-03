@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import {
   ShoppingCartIcon,
@@ -6,13 +7,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 
 import { Link } from "@/i18n/navigation";
-import { ContentImage } from "@/components/cms/content-image";
-
-const ITEMS = [
-  { key: "flag" as const, slot: "merch.flag", src: "/flag.png" },
-  { key: "mug" as const, slot: "merch.mug", src: "/mug.png" },
-  { key: "patches" as const, slot: "merch.patches", src: "/patches.png" },
-];
+import { listMerchCatalog } from "@/lib/cms/merch-catalog";
 
 export async function generateMetadata({
   params,
@@ -33,6 +28,7 @@ export default async function MerchIndexPage({
   setRequestLocale(locale);
   const tg = await getTranslations({ locale, namespace: "Gallery" });
   const tm = await getTranslations({ locale, namespace: "Merch" });
+  const items = await listMerchCatalog(locale);
 
   return (
     <div className="border-b border-[color:var(--border)]">
@@ -57,44 +53,61 @@ export default async function MerchIndexPage({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          {ITEMS.map((item) => {
-            const title = tm(`items.${item.key}.title` as "items.flag.title");
-            const price = tm(`items.${item.key}.price` as "items.flag.price");
-            const desc = tm(
-              `items.${item.key}.description` as "items.flag.description"
-            );
-            return (
+        {items.length === 0 ? (
+          <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] p-12 text-center">
+            <p className="tactical-text text-[color:var(--muted)] mb-2">
+              CATALOG EMPTY
+            </p>
+            <p className="text-sm text-[color:var(--muted-2)]">
+              {locale === "ru"
+                ? "В каталоге пока нет товаров. Загляни позже."
+                : locale === "en"
+                  ? "No items in the catalog yet. Check back later."
+                  : "У каталозі поки немає товарів. Загляньте пізніше."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-3">
+            {items.map((item) => (
               <article
-                key={item.key}
+                key={item.id}
                 className="frame group relative rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] overflow-hidden flex flex-col hover:border-[color:var(--accent)]/40 transition-colors"
               >
                 <div className="relative aspect-[3/2]">
-                  <ContentImage
-                    slot={item.slot}
-                    src={item.src}
-                    alt={title}
+                  <Image
+                    src={item.primaryPhoto}
+                    alt={item.title}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover"
+                    unoptimized={item.primaryPhoto.startsWith("/api/")}
                   />
                   <div className="absolute top-3 left-3 right-3 flex justify-between">
                     <span className="tactical-text text-[color:var(--accent)] bg-black/40 backdrop-blur-sm px-2 py-1 rounded-sm">
-                      UA-{item.key.toUpperCase()}
+                      UA-{item.code}
                     </span>
                     <span className="inline-flex items-center gap-1 tactical-text text-white bg-black/40 backdrop-blur-sm px-2 py-1 rounded-sm">
                       <TagIcon className="size-3" weight="bold" />
-                      {price}
+                      {item.price || "—"}
                     </span>
                   </div>
+                  {item.badge ? (
+                    <span className="absolute bottom-3 left-3 tactical-text text-black bg-[color:var(--accent)] px-2 py-1 rounded-sm font-bold">
+                      {item.badge}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="p-5 flex flex-col gap-3 flex-1">
-                  <h2 className="text-xl font-bold tracking-tight">{title}</h2>
-                  <p className="text-sm text-[color:var(--muted-2)] leading-relaxed line-clamp-3">
-                    {desc}
-                  </p>
+                  <h2 className="text-xl font-bold tracking-tight">
+                    {item.title}
+                  </h2>
+                  {item.shortDesc ? (
+                    <p className="text-sm text-[color:var(--muted-2)] leading-relaxed line-clamp-3">
+                      {item.shortDesc}
+                    </p>
+                  ) : null}
                   <Link
-                    href={`/merch/${item.key}`}
+                    href={`/merch/${item.id}`}
                     className="mt-auto inline-flex items-center justify-between gap-2 px-4 py-2.5 rounded-sm bg-[color:var(--accent)] text-black font-mono text-xs uppercase tracking-[0.18em] font-bold hover:bg-[color:var(--accent-hard)] transition-colors"
                   >
                     <span className="inline-flex items-center gap-2">
@@ -105,9 +118,9 @@ export default async function MerchIndexPage({
                   </Link>
                 </div>
               </article>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

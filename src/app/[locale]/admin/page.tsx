@@ -13,6 +13,8 @@ import {
   StackIcon,
   FileTextIcon,
   TreeStructureIcon,
+  TShirtIcon,
+  PackageIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -245,6 +247,46 @@ export default async function AdminPage({
             </div>
             <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
               Додавай, перейменовуй, переставляй або ховай пункти меню зверху і внизу сайту.
+            </p>
+          </div>
+        </Link>
+        <Link
+          href="/admin/merch"
+          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
+        >
+          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
+            <TShirtIcon className="size-6 text-black" weight="bold" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-base tracking-tight">Каталог мерчу</h3>
+              <ArrowRightIcon
+                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
+                weight="bold"
+              />
+            </div>
+            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
+              Додавай нові товари, редагуй назви/ціни/опис, ховай чи видаляй стандартні.
+            </p>
+          </div>
+        </Link>
+        <Link
+          href="/admin/orders"
+          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
+        >
+          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
+            <PackageIcon className="size-6 text-black" weight="bold" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-base tracking-tight">Замовлення</h3>
+              <ArrowRightIcon
+                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
+                weight="bold"
+              />
+            </div>
+            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
+              Усі замовлення мерчу з форми сайту. Контакти покупців, статуси, обробка.
             </p>
           </div>
         </Link>

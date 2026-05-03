@@ -11,7 +11,7 @@ import {
   saveImageFile,
   setImageOverride,
 } from "@/lib/cms/store";
-import { IMAGE_SLOTS } from "@/lib/cms/slots";
+import { listImageSlots } from "@/lib/cms/slots";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +25,12 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 export async function GET() {
   const guard = await requireOwner();
   if (guard) return guard;
-  const overrides = await readImageOverridesMulti();
+  const [slots, overrides] = await Promise.all([
+    listImageSlots(),
+    readImageOverridesMulti(),
+  ]);
   return NextResponse.json({
-    slots: IMAGE_SLOTS,
+    slots,
     overrides,
     max: MAX_PHOTOS_PER_SLOT,
   });
@@ -55,7 +58,8 @@ export async function POST(req: Request) {
   const key = String(form.get("key") || "");
   const mode = String(form.get("mode") || "append");
   const file = form.get("file");
-  if (!IMAGE_SLOTS.find((s) => s.key === key))
+  const slots = await listImageSlots();
+  if (!slots.find((s) => s.key === key))
     return NextResponse.json(
       { error: `Unknown image slot: ${key}` },
       { status: 400 }
@@ -110,7 +114,8 @@ export async function DELETE(req: Request) {
   const idxRaw = url.searchParams.get("index");
   if (!key)
     return NextResponse.json({ error: "Missing key" }, { status: 400 });
-  if (!IMAGE_SLOTS.find((s) => s.key === key))
+  const slots = await listImageSlots();
+  if (!slots.find((s) => s.key === key))
     return NextResponse.json(
       { error: `Unknown image slot: ${key}` },
       { status: 400 }
@@ -143,7 +148,8 @@ export async function PATCH(req: Request) {
       { error: "Required: key + order[]" },
       { status: 400 }
     );
-  if (!IMAGE_SLOTS.find((s) => s.key === key))
+  const slots = await listImageSlots();
+  if (!slots.find((s) => s.key === key))
     return NextResponse.json(
       { error: `Unknown image slot: ${key}` },
       { status: 400 }

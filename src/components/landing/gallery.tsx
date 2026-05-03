@@ -3,17 +3,16 @@ import { ShoppingCartIcon, ArrowRightIcon } from "@phosphor-icons/react/dist/ssr
 
 import { Link } from "@/i18n/navigation";
 import { GalleryCard } from "@/components/landing/gallery-card";
-import { readImageOverridesMulti } from "@/lib/cms/store";
+import { listMerchCatalog } from "@/lib/cms/merch-catalog";
 
-const ITEMS = [
-  { key: "flag" as const, slot: "merch.flag", src: "/flag.png", price: "350 ₴" },
-  { key: "mug" as const, slot: "merch.mug", src: "/mug.png", price: "280 ₴" },
-  { key: "patches" as const, slot: "merch.patches", src: "/patches.png", price: "120 ₴" },
-];
+type Locale = "ua" | "ru" | "en";
 
-export async function Gallery() {
+export async function Gallery({ locale }: { locale?: Locale } = {}) {
   const t = await getTranslations("Gallery");
-  const overrides = await readImageOverridesMulti();
+  const items = await listMerchCatalog(locale ?? "ua");
+  if (items.length === 0) return null;
+  // Show up to 3 items in the landing-section preview.
+  const preview = items.slice(0, 3);
 
   return (
     <section className="border-b border-[color:var(--border)]">
@@ -33,32 +32,32 @@ export async function Gallery() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {ITEMS.map((item) => {
-            const photos = overrides[item.slot]?.map((src) => ({ src })) || [
-              { src: item.src },
-            ];
+          {preview.map((item) => {
+            const photos = item.photos.map((src) => ({ src }));
             return (
               <article
-                key={item.key}
+                key={item.id}
                 className="frame group relative rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] overflow-hidden flex flex-col hover:border-[color:var(--accent)]/40 transition-colors"
               >
                 <GalleryCard
                   photos={photos}
-                  alt={t(`items.${item.key}` as "items.flag")}
-                  badge={`UA-${item.key.toUpperCase()}`}
-                  price={item.price}
+                  alt={item.title}
+                  badge={`UA-${item.code}`}
+                  price={item.price || "—"}
                 />
                 <div className="p-4 flex items-center justify-between gap-3 border-t border-[color:var(--border)]">
                   <div className="flex flex-col">
                     <span className="text-base font-bold tracking-tight">
-                      {t(`items.${item.key}` as "items.flag")}
+                      {item.title}
                     </span>
-                    <span className="tactical-text text-[color:var(--muted-2)]">
-                      {t(`itemTags.${item.key}` as "itemTags.flag")}
-                    </span>
+                    {item.shortDesc ? (
+                      <span className="tactical-text text-[color:var(--muted-2)] line-clamp-1">
+                        {item.shortDesc}
+                      </span>
+                    ) : null}
                   </div>
                   <Link
-                    href={`/merch/${item.key}`}
+                    href={`/merch/${item.id}`}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-sm bg-[color:var(--accent)] text-black font-mono text-[11px] uppercase tracking-[0.18em] font-bold hover:bg-[color:var(--accent-hard)] transition-colors whitespace-nowrap"
                   >
                     <ShoppingCartIcon className="size-3.5" weight="bold" />

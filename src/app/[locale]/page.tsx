@@ -13,15 +13,19 @@ import {
   LANDING_SECTIONS,
 } from "@/lib/cms/sections";
 
-const SECTION_RENDERERS: Record<string, () => React.ReactNode> = {
-  hero: () => <Hero />,
-  about: () => <About />,
-  games: () => <Games />,
-  gallery: () => <Gallery />,
-  codex: () => <Codex />,
-  botPromo: () => <BotPromo />,
-  joinCta: () => <JoinCta />,
-};
+type Locale = "ua" | "ru" | "en";
+
+function buildSectionRenderers(locale: Locale): Record<string, () => React.ReactNode> {
+  return {
+    hero: () => <Hero />,
+    about: () => <About />,
+    games: () => <Games />,
+    gallery: () => <Gallery locale={locale} />,
+    codex: () => <Codex />,
+    botPromo: () => <BotPromo />,
+    joinCta: () => <JoinCta />,
+  };
+}
 
 export default async function HomePage({
   params,
@@ -45,11 +49,12 @@ export default async function HomePage({
   for (const k of savedOrder) if (known.has(k) && !ordered.includes(k)) ordered.push(k);
   for (const k of LANDING_DEFAULT_ORDER) if (!ordered.includes(k)) ordered.push(k);
 
+  const renderers = buildSectionRenderers(locale as Locale);
   return (
     <>
       {ordered.map((k) => {
         if (hidden.has(k)) return null;
-        const render = SECTION_RENDERERS[k];
+        const render = renderers[k];
         if (!render) return null;
         return <div key={k}>{render()}</div>;
       })}
