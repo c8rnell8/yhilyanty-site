@@ -68,7 +68,7 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
     ? (input.format as EditOps["format"])
     : "mp4";
   const fps =
-    fmt === "gif"
+    fmt === "gif" || fmt === "webp".
       ? Math.max(8, Math.min(30, Number(input.fps) || 15))
       : undefined;
   const width =
