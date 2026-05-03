@@ -7,6 +7,8 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 
+import { discordDisplayName, useClientSession } from "@/lib/use-session";
+
 type Strings = {
   formTitle: string;
   formIntro: string;
@@ -45,6 +47,11 @@ export function OrderForm({
     "idle"
   );
   const [error, setError] = useState<string | null>(null);
+  const { session } = useClientSession();
+  const discordPrefill = session
+    ? `${session.username}${session.id ? ` (${session.id})` : ""}`
+    : "";
+  const callsignPrefill = discordDisplayName(session) || "";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -121,8 +128,10 @@ export function OrderForm({
       <label className="flex flex-col gap-1.5">
         <span className={labelCls}>{s.discord} *</span>
         <input
+          key={`discord-${discordPrefill}`}
           name="discord"
           required
+          defaultValue={discordPrefill}
           placeholder={s.discordPlaceholder}
           className={inputCls}
         />
@@ -132,7 +141,9 @@ export function OrderForm({
         <label className="flex flex-col gap-1.5">
           <span className={labelCls}>{s.callsign}</span>
           <input
+            key={`callsign-${callsignPrefill}`}
             name="callsign"
+            defaultValue={callsignPrefill}
             placeholder={s.callsignPlaceholder}
             className={inputCls}
           />

@@ -31,7 +31,8 @@
       "ops": "OPS THIS MONTH",
       "voice": "HOURS ON COMMS",
       "wins": "WIN-RATE"
-    }
+    },
+    "callsignLabel": "CALLSIGN"
   },
   "About": {
     "eyebrow": "001 / WHO WE ARE",
@@ -117,7 +118,10 @@
           "Eyelets along the edges",
           "Double-sided print"
         ],
-        "sizes": ["60×90", "100×150"]
+        "sizes": [
+          "60×90",
+          "100×150"
+        ]
       },
       "mug": {
         "title": "Clan mug",
@@ -129,7 +133,9 @@
           "Print: sublimation",
           "Dishwasher-safe"
         ],
-        "sizes": ["330 ml"]
+        "sizes": [
+          "330 ml"
+        ]
       },
       "patches": {
         "title": "Patches (set of 3)",
@@ -141,7 +147,9 @@
           "Backing: velcro hook",
           "Size: 50 × 70 mm"
         ],
-        "sizes": ["Standard"]
+        "sizes": [
+          "Standard"
+        ]
       }
     }
   },
@@ -197,14 +205,62 @@
       "armor": "Armor Crew"
     },
     "members": [
-      { "callsign": "@Hueta", "role": "lead", "spec": "Infantry / assault", "voice": 412, "since": "2024-08" },
-      { "callsign": "@Vasya", "role": "ftl", "spec": "Infantry / defense", "voice": 287, "since": "2024-09" },
-      { "callsign": "@Petya", "role": "medic", "spec": "Combat medic", "voice": 198, "since": "2024-10" },
-      { "callsign": "@Kola", "role": "marksman", "spec": "DMR / sniper", "voice": 156, "since": "2025-01" },
-      { "callsign": "@Drone", "role": "drone", "spec": "FPV / recon", "voice": 144, "since": "2025-02" },
-      { "callsign": "@Tank", "role": "armor", "spec": "Armored vehicles", "voice": 121, "since": "2025-03" },
-      { "callsign": "@Echo", "role": "rifleman", "spec": "Support", "voice": 88, "since": "2025-06" },
-      { "callsign": "@Bravo", "role": "rifleman", "spec": "AT / GL", "voice": 67, "since": "2025-09" }
+      {
+        "callsign": "@Hueta",
+        "role": "lead",
+        "spec": "Infantry / assault",
+        "voice": 412,
+        "since": "2024-08"
+      },
+      {
+        "callsign": "@Vasya",
+        "role": "ftl",
+        "spec": "Infantry / defense",
+        "voice": 287,
+        "since": "2024-09"
+      },
+      {
+        "callsign": "@Petya",
+        "role": "medic",
+        "spec": "Combat medic",
+        "voice": 198,
+        "since": "2024-10"
+      },
+      {
+        "callsign": "@Kola",
+        "role": "marksman",
+        "spec": "DMR / sniper",
+        "voice": 156,
+        "since": "2025-01"
+      },
+      {
+        "callsign": "@Drone",
+        "role": "drone",
+        "spec": "FPV / recon",
+        "voice": 144,
+        "since": "2025-02"
+      },
+      {
+        "callsign": "@Tank",
+        "role": "armor",
+        "spec": "Armored vehicles",
+        "voice": 121,
+        "since": "2025-03"
+      },
+      {
+        "callsign": "@Echo",
+        "role": "rifleman",
+        "spec": "Support",
+        "voice": 88,
+        "since": "2025-06"
+      },
+      {
+        "callsign": "@Bravo",
+        "role": "rifleman",
+        "spec": "AT / GL",
+        "voice": 67,
+        "since": "2025-09"
+      }
     ]
   },
   "Join": {
@@ -412,6 +468,9 @@
     "panelBlur": "Blur",
     "panelCrop": "Crop",
     "panelSpeed": "Speed",
-    "panelOutput": "Export"
+    "panelOutput": "Export",
+    "discordLimit": "Discord limit",
+    "tooLargeHint": "Reduce size/duration/crop — Discord will reject otherwise",
+    "estimateHint": "Estimated file size before render"
   }
 }

@@ -31,7 +31,8 @@
       "ops": "ОПЕРАЦИЙ ЗА МЕСЯЦ",
       "voice": "ЧАСОВ В ВОЙСЕ",
       "wins": "WIN-RATE"
-    }
+    },
+    "callsignLabel": "ПОЗЫВНОЙ"
   },
   "About": {
     "eyebrow": "001 / КТО МЫ",
@@ -117,7 +118,10 @@
           "Люверсы по краям",
           "Двусторонняя печать"
         ],
-        "sizes": ["60×90", "100×150"]
+        "sizes": [
+          "60×90",
+          "100×150"
+        ]
       },
       "mug": {
         "title": "Кружка с символикой",
@@ -129,7 +133,9 @@
           "Печать: сублимационная",
           "Не боится посудомойки"
         ],
-        "sizes": ["330 мл"]
+        "sizes": [
+          "330 мл"
+        ]
       },
       "patches": {
         "title": "Шевроны (набор 3 шт)",
@@ -141,7 +147,9 @@
           "Основа: velcro-крючок",
           "Размер: 50 × 70 мм"
         ],
-        "sizes": ["Стандарт"]
+        "sizes": [
+          "Стандарт"
+        ]
       }
     }
   },
@@ -197,14 +205,62 @@
       "armor": "Armor Crew"
     },
     "members": [
-      { "callsign": "@Hueta", "role": "lead", "spec": "Инфантри / штурм", "voice": 412, "since": "2024-08" },
-      { "callsign": "@Vasya", "role": "ftl", "spec": "Инфантри / защита", "voice": 287, "since": "2024-09" },
-      { "callsign": "@Petya", "role": "medic", "spec": "Боевой медик", "voice": 198, "since": "2024-10" },
-      { "callsign": "@Kola", "role": "marksman", "spec": "DMR / снайпер", "voice": 156, "since": "2025-01" },
-      { "callsign": "@Drone", "role": "drone", "spec": "FPV / разведка", "voice": 144, "since": "2025-02" },
-      { "callsign": "@Tank", "role": "armor", "spec": "Бронетехника", "voice": 121, "since": "2025-03" },
-      { "callsign": "@Echo", "role": "rifleman", "spec": "Поддержка", "voice": 88, "since": "2025-06" },
-      { "callsign": "@Bravo", "role": "rifleman", "spec": "AT / гранатомёт", "voice": 67, "since": "2025-09" }
+      {
+        "callsign": "@Hueta",
+        "role": "lead",
+        "spec": "Инфантри / штурм",
+        "voice": 412,
+        "since": "2024-08"
+      },
+      {
+        "callsign": "@Vasya",
+        "role": "ftl",
+        "spec": "Инфантри / защита",
+        "voice": 287,
+        "since": "2024-09"
+      },
+      {
+        "callsign": "@Petya",
+        "role": "medic",
+        "spec": "Боевой медик",
+        "voice": 198,
+        "since": "2024-10"
+      },
+      {
+        "callsign": "@Kola",
+        "role": "marksman",
+        "spec": "DMR / снайпер",
+        "voice": 156,
+        "since": "2025-01"
+      },
+      {
+        "callsign": "@Drone",
+        "role": "drone",
+        "spec": "FPV / разведка",
+        "voice": 144,
+        "since": "2025-02"
+      },
+      {
+        "callsign": "@Tank",
+        "role": "armor",
+        "spec": "Бронетехника",
+        "voice": 121,
+        "since": "2025-03"
+      },
+      {
+        "callsign": "@Echo",
+        "role": "rifleman",
+        "spec": "Поддержка",
+        "voice": 88,
+        "since": "2025-06"
+      },
+      {
+        "callsign": "@Bravo",
+        "role": "rifleman",
+        "spec": "AT / гранатомёт",
+        "voice": 67,
+        "since": "2025-09"
+      }
     ]
   },
   "Join": {
@@ -412,6 +468,9 @@
     "panelBlur": "Блюр",
     "panelCrop": "Кроп",
     "panelSpeed": "Скор.",
-    "panelOutput": "Экспорт"
+    "panelOutput": "Экспорт",
+    "discordLimit": "Лимит Discord",
+    "tooLargeHint": "Уменьши кадр/длительность/обрежь — иначе Discord не примет",
+    "estimateHint": "Оценка размера файла до рендера"
   }
 }

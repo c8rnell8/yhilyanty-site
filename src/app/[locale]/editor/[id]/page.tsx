@@ -93,6 +93,9 @@ export default async function EditorPage({
     panelCrop: t("panelCrop"),
     panelSpeed: t("panelSpeed"),
     panelOutput: t("panelOutput"),
+    discordLimit: t("discordLimit"),
+    tooLargeHint: t("tooLargeHint"),
+    estimateHint: t("estimateHint"),
     backToHome: t("backToHome"),
   };
 

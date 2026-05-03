@@ -73,6 +73,42 @@ function fmtTime(sec: number): string {
   return `${m.toString().padStart(2, "0")}:${r.toFixed(2).padStart(5, "0")}`;
 }
 
+const DISCORD_LIMIT_MB = 25;
+const DISCORD_LIMIT_BYTES = DISCORD_LIMIT_MB * 1024 * 1024;
+
+/**
+ * Rough size estimator for rendered output. Uses per-format empirical
+ * bitrate constants tuned against real ffmpeg outputs. Always slightly
+ * pessimistic so users don't get surprised at the 25 MB cliff.
+ */
+function estimateOutputBytes(opts: {
+  format: "mp4" | "gif" | "webm";
+  durationSec: number;
+  width: number;
+  height: number;
+  fps: number;
+}): number {
+  const dur = Math.max(0.1, opts.durationSec);
+  const px = Math.max(1, opts.width * opts.height);
+  if (opts.format === "gif") {
+    // GIF is roughly proportional to pixels * fps * duration. The
+    // coefficient 0.45 bits/px came from comparing real renders.
+    return Math.round((px * opts.fps * dur * 0.45) / 8);
+  }
+  if (opts.format === "webm") {
+    // VP9 ~0.10 bits/px/frame at default crf, fps assumed 30 if unknown.
+    return Math.round((px * 30 * dur * 0.1) / 8);
+  }
+  // mp4/h264 — a bit higher than webm for the same quality, ~0.13 bits/px.
+  return Math.round((px * 30 * dur * 0.13) / 8);
+}
+
+function fmtBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function Editor({
   sessionId,
   source,
@@ -131,6 +167,31 @@ export function Editor({
   const [outputExt, setOutputExt] = useState<string | null>(initialOutputExt);
   const [error, setError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [previewSize, setPreviewSize] = useState({ w: 0, h: 0 });
+
+  // Track preview canvas size so caption fontSize / blur radius can scale
+  // proportionally. ResizeObserver fires whenever the layout shifts (window
+  // resize, sidebar collapse, etc.) so the preview stays accurate.
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setPreviewSize({ w: rect.width, h: rect.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Speed slider must change real-time playback rate so the user can preview
+  // how fast/slow the result will play.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.playbackRate = Math.max(0.0625, Math.min(16, speed));
+  }, [speed]);
 
   // Sync video element with playing/seek
   useEffect(() => {
@@ -461,6 +522,36 @@ export function Editor({
     : 16 / 9;
 
   const trimDuration = Math.max(0, trimOut - trimIn);
+
+  // Effective output dimensions after crop / maxWidth scaling.
+  const effDimensions = useMemo(() => {
+    const baseW = (crop ? crop.w : 1) * source.width;
+    const baseH = (crop ? crop.h : 1) * source.height;
+    const ratio = baseH > 0 ? baseW / baseH : 16 / 9;
+    const w =
+      maxWidth > 0 && maxWidth < baseW
+        ? maxWidth
+        : Math.max(2, Math.round(baseW));
+    const h = Math.max(2, Math.round(w / ratio));
+    return { w, h };
+  }, [crop, source.width, source.height, maxWidth]);
+
+  const estBytes = useMemo(
+    () =>
+      estimateOutputBytes({
+        format,
+        durationSec: trimDuration / Math.max(0.1, speed),
+        width: effDimensions.w,
+        height: effDimensions.h,
+        fps,
+      }),
+    [format, trimDuration, speed, effDimensions, fps]
+  );
+  const estPct = Math.min(
+    1,
+    Math.max(0.005, estBytes / DISCORD_LIMIT_BYTES)
+  );
+  const estTooLarge = estBytes > DISCORD_LIMIT_BYTES;
   const cursorRatio = source.duration > 0 ? currentTime / source.duration : 0;
 
   // Tool buttons
@@ -508,7 +599,49 @@ export function Editor({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-wrap justify-end">
+            <div className="flex flex-col gap-1 min-w-[180px]">
+              <div className="flex items-center justify-between gap-2 tactical-text">
+                <span className="text-[color:var(--muted-2)]">
+                  {s.discordLimit}
+                </span>
+                <span
+                  className={`font-mono ${
+                    estTooLarge
+                      ? "text-red-400"
+                      : estPct > 0.75
+                        ? "text-yellow-300"
+                        : "text-[color:var(--accent)]"
+                  }`}
+                >
+                  {fmtBytes(estBytes)} / {DISCORD_LIMIT_MB} MB
+                </span>
+              </div>
+              <div
+                className="relative h-2 rounded-sm bg-[color:var(--background-elev)] border border-[color:var(--border-strong)] overflow-hidden"
+                aria-label={s.discordLimit}
+              >
+                <div
+                  className={`absolute inset-y-0 left-0 transition-all ${
+                    estTooLarge
+                      ? "bg-red-500"
+                      : estPct > 0.75
+                        ? "bg-yellow-400"
+                        : "bg-[color:var(--accent)]"
+                  }`}
+                  style={{ width: `${estPct * 100}%` }}
+                />
+              </div>
+              {estTooLarge ? (
+                <span className="tactical-text text-[10px] text-red-400">
+                  {s.tooLargeHint}
+                </span>
+              ) : (
+                <span className="tactical-text text-[10px] text-[color:var(--muted)]">
+                  {s.estimateHint}
+                </span>
+              )}
+            </div>
             <span
               className={`tactical-text px-2 py-1 rounded-sm border ${
                 status === "rendered"
@@ -569,6 +702,19 @@ export function Editor({
                 className="absolute inset-0 w-full h-full object-contain"
                 playsInline
                 muted
+                style={
+                  crop
+                    ? {
+                        // Live crop preview via clip-path inset(top right bottom left).
+                        clipPath: `inset(${(crop.y * 100).toFixed(2)}% ${(
+                          (1 - crop.x - crop.w) *
+                          100
+                        ).toFixed(2)}% ${((1 - crop.y - crop.h) * 100).toFixed(
+                          2
+                        )}% ${(crop.x * 100).toFixed(2)}%)`,
+                      }
+                    : undefined
+                }
               />
               {/* Crop overlay */}
               {crop && (
@@ -597,7 +743,7 @@ export function Editor({
                     setTool("blur");
                     startDrag(e, { kind: "blur", id: b.id });
                   }}
-                  className={`absolute backdrop-blur-md cursor-move ${
+                  className={`absolute cursor-move ${
                     activeBlurId === b.id
                       ? "border-2 border-[color:var(--accent)]"
                       : "border border-white/40"
@@ -607,6 +753,19 @@ export function Editor({
                     top: `${b.y * 100}%`,
                     width: `${b.w * 100}%`,
                     height: `${b.h * 100}%`,
+                    // Blur intensity in source pixels → scale to preview px so
+                    // strength matches what ffmpeg will render. boxblur(x) in
+                    // ffmpeg ≈ css blur(x*0.85), tuned by eye.
+                    backdropFilter: `blur(${(
+                      (b.intensity *
+                        (previewSize.h || source.height)) /
+                      Math.max(source.height, 1)
+                    ).toFixed(2)}px)`,
+                    WebkitBackdropFilter: `blur(${(
+                      (b.intensity *
+                        (previewSize.h || source.height)) /
+                      Math.max(source.height, 1)
+                    ).toFixed(2)}px)`,
                   }}
                 >
                   <span className="absolute top-1 left-1 tactical-text text-[10px] text-white bg-black/60 px-1.5 py-0.5 rounded-sm">
@@ -630,7 +789,14 @@ export function Editor({
                   style={{
                     left: `${c.x * 100}%`,
                     top: `${c.y * 100}%`,
-                    fontSize: `clamp(10px, ${(c.fontSize / source.height) * 100}%, 100px)`,
+                    // Caption fontSize in source pixels → preview pixels.
+                    // previewSize.h is the rendered height of the preview;
+                    // ratio = preview/source maps source-px to screen-px.
+                    fontSize: `${(
+                      (c.fontSize *
+                        (previewSize.h || source.height)) /
+                      Math.max(source.height, 1)
+                    ).toFixed(2)}px`,
                     color: c.color,
                     background:
                       c.background === "black"

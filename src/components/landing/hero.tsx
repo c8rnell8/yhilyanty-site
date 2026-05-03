@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 
 import { BigUMark } from "@/components/logo";
 import { Link } from "@/i18n/navigation";
+import { discordDisplayName, useClientSession } from "@/lib/use-session";
 
 const DISCORD_INVITE = "https://discord.com/invite/CcN3GzeSfk";
 
@@ -17,6 +18,9 @@ const spring = { type: "spring", stiffness: 380, damping: 32 } as const;
 
 export function Hero() {
   const t = useTranslations("Hero");
+  const { session } = useClientSession();
+  const nick = discordDisplayName(session);
+  const callsignText = nick ? `${t("callsignLabel")} — @${nick}` : t("callsign");
 
   return (
     <section className="relative overflow-hidden border-b border-[color:var(--border)]">
@@ -41,7 +45,7 @@ export function Hero() {
             <CrosshairIcon className="size-3 text-[color:var(--accent)]" weight="bold" />
             <span className="tactical-text text-[color:var(--accent)]">{t("tag")}</span>
             <span className="h-px flex-1 max-w-[120px] bg-[color:var(--border-strong)]" />
-            <span className="tactical-text">{t("callsign")}</span>
+            <span className="tactical-text">{callsignText}</span>
           </motion.div>
 
           <motion.h1
