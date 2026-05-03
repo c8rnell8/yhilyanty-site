@@ -205,8 +205,8 @@ function ffmpegArgs(
       "+faststart",
       "-an"
     );
-  } else if (ops.format === "webm") {
-    args.push("-c:v", "libvpx-vp9", "-b:v", "1500k", "-an");
+  } else if (ops.format === "webp") {
+    args.push("-c:v", "libwebp", "-loop", "0", "-an");
   }
 
   args.push(outputPath);
@@ -225,7 +225,7 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
   // For GIF we use a separate two-pipe approach (filter_complex split palette).
   // For mp4/webm we use single filter_complex with effects.
   try {
-    const outExt = ops.format === "gif" ? ".gif" : ops.format === "webm" ? ".webm" : ".mp4";
+    const outExt = ops.format === "gif" ? ".gif" : ops.format === "webp" ? ".webp" : ".mp4";
     const outputPath = path.join(dir, `output${outExt}`);
 
     // Build a clean unified pipeline using filter_complex only (no -vf).
@@ -257,8 +257,8 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
         "+faststart",
         "-an"
       );
-    } else if (ops.format === "webm") {
-      args.push("-c:v", "libvpx-vp9", "-b:v", "1500k", "-an");
+    } else if (ops.format === "webp") {
+      args.push("-c:v", "libwebp", "-loop", "0", "-an");
     }
     args.push(outputPath);
 
