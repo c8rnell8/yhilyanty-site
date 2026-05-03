@@ -17,7 +17,7 @@ export const SUPPORTED_INPUTS = new Set([
   ".m4v",
 ]);
 
-export const SUPPORTED_OUTPUTS = ["mp4", "gif", "webm"] as const;
+export const SUPPORTED_OUTPUTS = ["mp4", "gif", "webp"] as const;
 export type OutputFormat = (typeof SUPPORTED_OUTPUTS)[number];
 
 export type CaptionOp = {
