@@ -13,7 +13,7 @@ import path from "node:path";
 
 export const CMS_DIR =
   process.env.CMS_DIR ||
-  "/home/ubuntu/yhilyanty-site/.cms-overrides";
+  path.join(process.cwd(), ".cms-overrides");
 
 export const IMAGES_DIR = path.join(CMS_DIR, "images");
 

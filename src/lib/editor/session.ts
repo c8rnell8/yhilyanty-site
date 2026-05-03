@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 
 export const SESSIONS_DIR =
   process.env.EDITOR_SESSIONS_DIR ||
-  "/home/ubuntu/yhilyanty-site/.editor-sessions";
+  path.join(process.cwd(), ".editor-sessions");
 
 export const MAX_SOURCE_BYTES = 100 * 1024 * 1024; // 100 MB
 export const SUPPORTED_INPUTS = new Set([

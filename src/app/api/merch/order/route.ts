@@ -23,7 +23,7 @@ function isItemKey(v: string): v is ItemKey {
 }
 
 const STORE_DIR =
-  process.env.MERCH_STORE_DIR || "/home/ubuntu/yhilyanty-site/.merch-orders";
+  process.env.MERCH_STORE_DIR || path.join(process.cwd(), ".merch-orders");
 
 export async function POST(req: Request) {
   let body: Body;
