@@ -4,7 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 import { getSession, isOwner } from "@/lib/auth";
 import { ImageManager } from "@/components/admin/image-manager";
 import { IMAGE_SLOTS } from "@/lib/cms/slots";
-import { readImageOverrides } from "@/lib/cms/store";
+import { readImageOverridesMulti } from "@/lib/cms/store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,6 @@ export default async function AdminImagesPage({
   const session = await getSession();
   if (!isOwner(session)) redirect(`/${locale}/admin`);
 
-  const overrides = await readImageOverrides();
+  const overrides = await readImageOverridesMulti();
   return <ImageManager slots={IMAGE_SLOTS} initialOverrides={overrides} />;
 }

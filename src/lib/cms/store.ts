@@ -24,7 +24,15 @@ export const PAGES_FILE = path.join(CMS_DIR, "pages.json");
 export const NAV_FILE = path.join(CMS_DIR, "nav.json");
 
 export type TextOverrides = Record<string, Record<string, string>>;
+/** Persisted shape: slot → string OR string[]; legacy single strings stay
+ *  back-compatible. Use `readImageOverridesMulti` for the always-array shape. */
+export type ImageOverridesRaw = Record<string, string | string[]>;
+/** Legacy: only the *first* override URL per slot (back-compat for ContentImage). */
 export type ImageOverrides = Record<string, string>;
+/** Always-array shape used by photo galleries / admin UI. */
+export type ImageOverridesMulti = Record<string, string[]>;
+/** Hard cap on how many photos can be stored per slot. */
+export const MAX_PHOTOS_PER_SLOT = 5;
 export type SectionLayout = {
   sections?: string[];
   hidden?: string[];
@@ -169,22 +177,134 @@ export function flattenMessages(
 
 // ── Image overrides ──────────────────────────────────────────────────────────
 
-export async function readImageOverrides(): Promise<ImageOverrides> {
-  return readJson<ImageOverrides>(IMAGES_FILE, {});
+/** Normalize a raw entry (string or string[]) to a clean string[] (no duplicates). */
+function toPhotoArray(v: string | string[] | undefined): string[] {
+  if (!v) return [];
+  const arr = Array.isArray(v) ? v : [v];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of arr) {
+    if (typeof url !== "string" || !url) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out.slice(0, MAX_PHOTOS_PER_SLOT);
 }
 
-export async function writeImageOverrides(o: ImageOverrides): Promise<void> {
+/** Legacy reader: returns the *first* photo URL per slot (string).
+ *  ContentImage still uses this — a single photo per slot stays unchanged. */
+export async function readImageOverrides(): Promise<ImageOverrides> {
+  const raw = await readJson<ImageOverridesRaw>(IMAGES_FILE, {});
+  const out: ImageOverrides = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const arr = toPhotoArray(v);
+    if (arr.length) out[k] = arr[0];
+  }
+  return out;
+}
+
+/** Multi-photo reader: always returns string[] (0..MAX). */
+export async function readImageOverridesMulti(): Promise<ImageOverridesMulti> {
+  const raw = await readJson<ImageOverridesRaw>(IMAGES_FILE, {});
+  const out: ImageOverridesMulti = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const arr = toPhotoArray(v);
+    if (arr.length) out[k] = arr;
+  }
+  return out;
+}
+
+export async function writeImageOverridesMulti(o: ImageOverridesMulti): Promise<void> {
   await withMutex(IMAGES_FILE, () => writeJsonAtomic(IMAGES_FILE, o));
 }
 
+/** Legacy single-set/clear helper. Sets a slot's array to [publicUrl]
+ *  (or removes the slot entirely if null). */
 export async function setImageOverride(
   key: string,
   publicUrl: string | null
-): Promise<ImageOverrides> {
+): Promise<ImageOverridesMulti> {
   return withMutex(IMAGES_FILE, async () => {
-    const cur = await readImageOverrides();
+    const cur = await readImageOverridesMulti();
     if (publicUrl === null) delete cur[key];
-    else cur[key] = publicUrl;
+    else cur[key] = [publicUrl];
+    await writeJsonAtomic(IMAGES_FILE, cur);
+    return cur;
+  });
+}
+
+/** Append a photo to a slot. Returns the new array. Caps at MAX_PHOTOS_PER_SLOT
+ *  and throws when full so the API can return 409. */
+export async function pushImageOverride(
+  key: string,
+  publicUrl: string
+): Promise<ImageOverridesMulti> {
+  return withMutex(IMAGES_FILE, async () => {
+    const cur = await readImageOverridesMulti();
+    const arr = cur[key] ? [...cur[key]] : [];
+    if (arr.includes(publicUrl)) {
+      cur[key] = arr;
+      await writeJsonAtomic(IMAGES_FILE, cur);
+      return cur;
+    }
+    if (arr.length >= MAX_PHOTOS_PER_SLOT) {
+      const err = new Error(
+        `Slot "${key}" is full (max ${MAX_PHOTOS_PER_SLOT} photos)`
+      );
+      (err as Error & { code?: string }).code = "ESLOTFULL";
+      throw err;
+    }
+    arr.push(publicUrl);
+    cur[key] = arr;
+    await writeJsonAtomic(IMAGES_FILE, cur);
+    return cur;
+  });
+}
+
+/** Remove the photo at `index` from `key`. If the slot becomes empty,
+ *  drops the key entirely. */
+export async function removeImageOverrideAt(
+  key: string,
+  index: number
+): Promise<ImageOverridesMulti> {
+  return withMutex(IMAGES_FILE, async () => {
+    const cur = await readImageOverridesMulti();
+    const arr = cur[key] ? [...cur[key]] : [];
+    if (index < 0 || index >= arr.length) {
+      await writeJsonAtomic(IMAGES_FILE, cur);
+      return cur;
+    }
+    arr.splice(index, 1);
+    if (arr.length === 0) delete cur[key];
+    else cur[key] = arr;
+    await writeJsonAtomic(IMAGES_FILE, cur);
+    return cur;
+  });
+}
+
+/** Reorder photos within a single slot. Index list must be a permutation
+ *  of 0..n-1; otherwise the call no-ops. */
+export async function reorderImageOverride(
+  key: string,
+  newOrder: number[]
+): Promise<ImageOverridesMulti> {
+  return withMutex(IMAGES_FILE, async () => {
+    const cur = await readImageOverridesMulti();
+    const arr = cur[key] ? [...cur[key]] : [];
+    if (newOrder.length !== arr.length) {
+      await writeJsonAtomic(IMAGES_FILE, cur);
+      return cur;
+    }
+    const seen = new Set<number>();
+    for (const i of newOrder) {
+      if (i < 0 || i >= arr.length || seen.has(i)) {
+        await writeJsonAtomic(IMAGES_FILE, cur);
+        return cur;
+      }
+      seen.add(i);
+    }
+    cur[key] = newOrder.map((i) => arr[i]);
     await writeJsonAtomic(IMAGES_FILE, cur);
     return cur;
   });

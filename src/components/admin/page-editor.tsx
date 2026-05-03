@@ -677,15 +677,18 @@ function BlockForm({
           ))}
           <button
             type="button"
-            onClick={() =>
+            disabled={block.items.length >= 5}
+            onClick={() => {
+              if (block.items.length >= 5) return;
               onChange({
                 items: [...block.items, { id: genId(), src: "", caption: {} }],
-              } as Partial<Block>)
-            }
-            className="tactical-text inline-flex items-center gap-2 px-3 h-9 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40 w-fit"
+              } as Partial<Block>);
+            }}
+            className="tactical-text inline-flex items-center gap-2 px-3 h-9 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40 w-fit disabled:opacity-40 disabled:cursor-not-allowed"
+            title={block.items.length >= 5 ? "Максимум 5 фото у блоку галереї" : "Додати фото"}
           >
             <PlusIcon className="size-4" weight="bold" />
-            ДОДАТИ ФОТО
+            ДОДАТИ ФОТО {block.items.length >= 5 ? "(MAX 5)" : `(${block.items.length}/5)`}
           </button>
         </div>
       );

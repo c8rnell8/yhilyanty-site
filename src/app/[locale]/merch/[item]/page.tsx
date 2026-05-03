@@ -9,7 +9,8 @@ import {
 
 import { Link } from "@/i18n/navigation";
 import { OrderForm } from "@/components/merch/order-form";
-import { ContentImage } from "@/components/cms/content-image";
+import { PhotoViewer } from "@/components/ui/photo-viewer";
+import { readImageOverridesMulti } from "@/lib/cms/store";
 
 const ITEM_KEYS = ["flag", "mug", "patches"] as const;
 type ItemKey = (typeof ITEM_KEYS)[number];
@@ -57,6 +58,13 @@ export default async function MerchItemPage({
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Merch" });
 
+  const overrides = await readImageOverridesMulti();
+  const overridePhotos = overrides[SLOTS[itemKey]] || [];
+  const photos =
+    overridePhotos.length > 0
+      ? overridePhotos.map((src) => ({ src }))
+      : [{ src: IMAGES[itemKey] }];
+
   const title = t(`items.${itemKey}.title` as "items.flag.title");
   const price = t(`items.${itemKey}.price` as "items.flag.price");
   const description = t(
@@ -100,16 +108,9 @@ export default async function MerchItemPage({
         <div className="grid gap-10 lg:grid-cols-12">
           {/* Left: image + info */}
           <div className="lg:col-span-6 flex flex-col gap-6">
-            <div className="frame relative rounded-sm border border-[color:var(--border-strong)] bg-[color:var(--background-elev)] overflow-hidden aspect-[4/3]">
-              <ContentImage
-                slot={SLOTS[itemKey]}
-                src={IMAGES[itemKey]}
-                alt={title}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover"
-              />
-              <div className="absolute top-3 left-3 right-3 flex justify-between">
+            <div className="relative">
+              <PhotoViewer photos={photos} alt={title} aspect="4 / 3" />
+              <div className="pointer-events-none absolute top-3 left-3 right-3 flex justify-between z-10">
                 <span className="tactical-text text-[color:var(--accent)] bg-black/40 backdrop-blur-sm px-2 py-1 rounded-sm">
                   UA-{itemKey.toUpperCase()}
                 </span>

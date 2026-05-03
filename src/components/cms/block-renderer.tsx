@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import type { Block, Multi } from "@/lib/cms/store";
+import { BlockGallery } from "@/components/cms/block-gallery";
 
 function pick(m: Multi | undefined, locale: Locale): string {
   if (!m) return "";
@@ -141,33 +142,10 @@ export function BlockRenderer({
     }
     case "gallery": {
       if (!block.items || block.items.length === 0) return null;
-      return (
-        <section className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-10 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {block.items.map((it) => {
-              const cap = pick(it.caption, locale);
-              return (
-                <figure key={it.id} className="rounded-sm overflow-hidden border border-[color:var(--border)]">
-                  <div className="relative w-full aspect-square bg-black">
-                    <Image
-                      src={it.src}
-                      alt={cap || ""}
-                      fill
-                      className="object-cover"
-                      unoptimized={it.src.startsWith("/api/cms/")}
-                    />
-                  </div>
-                  {cap && (
-                    <figcaption className="p-3 text-xs font-mono uppercase tracking-[0.14em] text-[color:var(--muted-2)]">
-                      {cap}
-                    </figcaption>
-                  )}
-                </figure>
-              );
-            })}
-          </div>
-        </section>
-      );
+      // Hard cap: at most 5 photos per gallery block.
+      const items = block.items.slice(0, 5).filter((it) => it.src);
+      if (items.length === 0) return null;
+      return <BlockGallery items={items} locale={locale} />;
     }
     case "divider":
       return (
