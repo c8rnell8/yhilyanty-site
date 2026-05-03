@@ -20,7 +20,14 @@ export function Hero() {
   const t = useTranslations("Hero");
   const { session } = useClientSession();
   const nick = discordDisplayName(session);
-  const callsignText = nick ? `${t("callsignLabel")} — @${nick}` : t("callsign");
+  // Default: «ПОЗИВНИЙ — UA-SQUAD». When logged-in, the literal word
+  // «ПОЗИВНИЙ» is replaced with the user's Discord display name in lower-case
+  // (e.g. «cornello — UA-SQUAD»).
+  const defaultCallsign = t("callsign");
+  const labelWord = t("callsignLabel");
+  const callsignText = nick
+    ? defaultCallsign.replace(labelWord, nick.toLowerCase())
+    : defaultCallsign;
 
   return (
     <section className="relative overflow-hidden border-b border-[color:var(--border)]">
