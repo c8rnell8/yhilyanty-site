@@ -396,9 +396,9 @@
     "standaloneRequiresLogin": "Log in via Discord to upload.",
     "standaloneDrop": "Drop video here",
     "standaloneBrowse": "or pick from disk",
-    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · up to 200 MB",
+    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · up to 100 MB",
     "standaloneUploading": "Uploading…",
-    "standaloneTooLarge": "File too large (max 200 MB)",
+    "standaloneTooLarge": "File too large (max 100 MB)",
     "standaloneUnsupported": "Unsupported format. MP4 / MOV / WEBM / MKV / GIF",
     "standaloneUploadFailed": "Upload failed"
   },

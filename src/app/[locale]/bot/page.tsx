@@ -185,7 +185,7 @@ export default async function BotPage({
                   {t("standaloneRequiresLogin")}
                 </p>
                 <a
-                  href={`/api/auth/login?next=/${locale}/bot`}
+                  href={`/api/auth/login?returnTo=/${locale}/bot`}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-sm bg-[color:var(--accent)] text-black font-mono text-xs uppercase tracking-[0.18em] font-bold hover:bg-[color:var(--accent-hard)] transition-colors"
                 >
                   <DiscordLogoIcon className="size-4" weight="fill" />

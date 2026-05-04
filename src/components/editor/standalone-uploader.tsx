@@ -12,7 +12,10 @@ import {
  *  /api/editor/sessions/standalone (Discord-login required) and redirects to
  *  the resulting editor page. Mirrors the acceptance rules of the backend. */
 const ACCEPTED_EXT = [".mp4", ".mov", ".webm", ".mkv", ".m4v", ".gif"];
-const MAX_MB = 200;
+// Must stay in sync with MAX_SOURCE_BYTES in src/lib/editor/session.ts
+// (currently 100 MB). Going higher here just wastes the user's bandwidth
+// because the server will reject the file after the full upload completes.
+const MAX_MB = 100;
 
 export function StandaloneUploader({
   locale,

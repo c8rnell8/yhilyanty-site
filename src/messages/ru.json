@@ -396,9 +396,9 @@
     "standaloneRequiresLogin": "Войди через Discord чтобы загрузить.",
     "standaloneDrop": "Перетащи видео сюда",
     "standaloneBrowse": "или выбери с диска",
-    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · до 200 МБ",
+    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · до 100 МБ",
     "standaloneUploading": "Загружаю…",
-    "standaloneTooLarge": "Файл слишком большой (макс. 200 МБ)",
+    "standaloneTooLarge": "Файл слишком большой (макс. 100 МБ)",
     "standaloneUnsupported": "Неподдерживаемый формат. MP4 / MOV / WEBM / MKV / GIF",
     "standaloneUploadFailed": "Ошибка загрузки"
   },

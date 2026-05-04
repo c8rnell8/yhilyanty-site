@@ -231,20 +231,27 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
     const outExt = ops.format === "gif" ? ".gif" : ops.format === "webp" ? ".webp" : ".mp4";
     const outputPath = path.join(dir, `output${outExt}`);
 
-    // Build a clean unified pipeline using filter_complex only (no -vf).
-    const filter = buildUnifiedFilter(ops, s.source);
-
     // Sticker inputs: each sticker references a separate -i input by index
-    // (1, 2, ...). The filter graph built above uses those same indices.
+    // (1, 2, ...). Filter the sticker list ONCE here so the `-i` args and the
+    // filter graph agree on which entries are present — otherwise stickers
+    // with an empty sanitized name would get a filter reference to a ffmpeg
+    // input index that was never added, and the render would fail with a
+    // cryptic "Stream specifier [N:v] matches no streams" error.
     const stickerInputs: string[] = [];
-    const stickerOps = Array.isArray(ops.stickers) ? ops.stickers.slice(0, 4) : [];
-    for (const st of stickerOps) {
+    const validStickers: NonNullable<EditOps["stickers"]> = [];
+    const rawStickerOps = Array.isArray(ops.stickers) ? ops.stickers.slice(0, 4) : [];
+    for (const st of rawStickerOps) {
       if (!st.file || typeof st.file !== "string") continue;
       // Strictly scope the sticker path to the session dir to prevent escapes.
       const safe = st.file.replace(/[^a-zA-Z0-9._-]/g, "");
       if (!safe) continue;
       stickerInputs.push("-i", path.join(dir, safe));
+      validStickers.push({ ...st, file: safe });
     }
+    const renderOps: EditOps = { ...ops, stickers: validStickers };
+
+    // Build a clean unified pipeline using filter_complex only (no -vf).
+    const filter = buildUnifiedFilter(renderOps, s.source);
 
     const args: string[] = [
       "-y",
