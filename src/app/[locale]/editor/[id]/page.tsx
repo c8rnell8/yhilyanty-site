@@ -57,7 +57,7 @@ export default async function EditorPage({
     format: t("format"),
     formatMp4: t("formatMp4"),
     formatGif: t("formatGif"),
-    formatWebm: t("formatWebm"),
+    formatWebp: t("formatWebp"),
     fps: t("fps"),
     maxWidth: t("maxWidth"),
     render: t("render"),

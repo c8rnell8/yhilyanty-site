@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 const MIME: Record<string, string> = {
   ".mp4": "video/mp4",
   ".gif": "image/gif",
+  ".webp": "image/webp",
+  // Input source may still be webm — keep MIME mapping for source streaming.
   ".webm": "video/webm",
 };
 

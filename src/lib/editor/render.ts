@@ -223,7 +223,7 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
   const sourcePath = path.join(dir, `source${s.source.ext}`);
 
   // For GIF we use a separate two-pipe approach (filter_complex split palette).
-  // For mp4/webm we use single filter_complex with effects.
+  // For mp4/webp we use single filter_complex with effects.
   try {
     const outExt = ops.format === "gif" ? ".gif" : ops.format === "webp" ? ".webp" : ".mp4";
     const outputPath = path.join(dir, `output${outExt}`);

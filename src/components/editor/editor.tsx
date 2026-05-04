@@ -82,7 +82,7 @@ const DISCORD_LIMIT_BYTES = DISCORD_LIMIT_MB * 1024 * 1024;
  * pessimistic so users don't get surprised at the 25 MB cliff.
  */
 function estimateOutputBytes(opts: {
-  format: "mp4" | "gif" | "webm";
+  format: "mp4" | "gif" | "webp";
   durationSec: number;
   width: number;
   height: number;
@@ -95,11 +95,12 @@ function estimateOutputBytes(opts: {
     // coefficient 0.45 bits/px came from comparing real renders.
     return Math.round((px * opts.fps * dur * 0.45) / 8);
   }
-  if (opts.format === "webm") {
-    // VP9 ~0.10 bits/px/frame at default crf, fps assumed 30 if unknown.
-    return Math.round((px * 30 * dur * 0.1) / 8);
+  if (opts.format === "webp") {
+    // Animated WebP via libwebp — ~0.08 bits/px/frame typical for this use case.
+    return Math.round((px * opts.fps * dur * 0.08) / 8);
   }
-  // mp4/h264 — a bit higher than webm for the same quality, ~0.13 bits/px.
+  // mp4/h264 — a bit higher per pixel, ~0.13 bits/px at 30 fps assumed.
+  // (приблизно)
   return Math.round((px * 30 * dur * 0.13) / 8);
 }
 
@@ -159,7 +160,7 @@ export function Editor({
   const [crop, setCrop] = useState<Crop | null>(null);
 
   const [speed, setSpeed] = useState(1);
-  const [format, setFormat] = useState<"mp4" | "gif" | "webm">("mp4");
+  const [format, setFormat] = useState<"mp4" | "gif" | "webp">("mp4");
   const [fps, setFps] = useState(15);
   const [maxWidth, setMaxWidth] = useState<number>(0);
 
@@ -1212,7 +1213,7 @@ export function Editor({
               {tool === "output" && (
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-3 gap-2">
-                    {(["mp4", "gif", "webm"] as const).map((f) => (
+                    {(["mp4", "gif", "webp"] as const).map((f) => (
                       <button
                         key={f}
                         type="button"
@@ -1294,7 +1295,7 @@ export function Editor({
                         {linkCopied ? s.linkCopied : s.copyLink}
                       </button>
                     </div>
-                    {outputExt && (outputExt === ".mp4" || outputExt === ".webm") ? (
+                    {outputExt && (outputExt === ".mp4" || outputExt === ".webp") ? (
                       <video
                         key={outputExt + sessionId + status}
                         src={`/api/editor/sessions/${sessionId}/output`}

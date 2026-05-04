@@ -433,7 +433,7 @@
     "format": "Format",
     "formatMp4": "Video H.264",
     "formatGif": "Animation",
-    "formatWebm": "Video VP9",
+    "formatWebp": "WebP animation",
     "fps": "Frames/s",
     "maxWidth": "Max width",
     "render": "Render",
