@@ -31,6 +31,9 @@ export function LayoutEditor({
   const [saved, setSaved] = useState(false);
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [splitView, setSplitView] = useState(true);
+  const [previewBust, setPreviewBust] = useState(0);
+  const [previewLocale, setPreviewLocale] = useState<"ua" | "ru" | "en">("ua");
 
   const handleDragStart = (key: string) => (e: React.DragEvent<HTMLLIElement>) => {
     setDraggingKey(key);
@@ -107,6 +110,7 @@ export function LayoutEditor({
         throw new Error(j.error || `HTTP ${res.status}`);
       }
       setSaved(true);
+      setPreviewBust((n) => n + 1);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -115,9 +119,17 @@ export function LayoutEditor({
     }
   }
 
+  const previewHref = `/${previewLocale}/?__t=${previewBust}`;
+
   return (
-    <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-12 lg:py-16">
-      <div className="flex flex-wrap items-start justify-between gap-6 mb-8">
+    <section
+      className={
+        splitView
+          ? "mx-auto w-full px-4 sm:px-6 lg:px-10 py-6"
+          : "mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-12 lg:py-16"
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-6 mb-6">
         <div className="flex flex-col gap-2">
           <Link
             href="/admin"
@@ -134,6 +146,17 @@ export function LayoutEditor({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSplitView((v) => !v)}
+            className={`tactical-text inline-flex items-center gap-2 px-3 h-10 rounded-sm border ${
+              splitView
+                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/60"
+            }`}
+          >
+            {splitView ? "ПРЕВ'Ю УВІМК" : "ПРЕВ'Ю ВИМК"}
+          </button>
           <button
             type="button"
             onClick={reset}
@@ -170,6 +193,7 @@ export function LayoutEditor({
         </div>
       )}
 
+      <div className={splitView ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "contents"}>
       <ul className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] divide-y divide-[color:var(--border)]">
         {order.map((key, idx) => {
           const def = byKey[key];
@@ -256,6 +280,50 @@ export function LayoutEditor({
           );
         })}
       </ul>
+
+      {splitView && (
+        <aside
+          className="lg:sticky lg:top-4 self-start rounded-sm border border-[color:var(--border-strong)] bg-black overflow-hidden flex flex-col"
+          style={{ height: "calc(100vh - 120px)" }}
+        >
+          <div className="flex items-center justify-between px-3 h-10 border-b border-[color:var(--border-strong)] bg-[color:var(--background-elev)]">
+            <div className="flex items-center gap-1">
+              {(["ua", "ru", "en"] as const).map((lc) => (
+                <button
+                  key={lc}
+                  type="button"
+                  onClick={() => setPreviewLocale(lc)}
+                  className={`tactical-text px-2 h-7 rounded-sm border ${
+                    previewLocale === lc
+                      ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                      : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/40"
+                  }`}
+                >
+                  {lc.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewBust((n) => n + 1)}
+              className="tactical-text px-2 h-7 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+              title="Перезавантажити iframe"
+            >
+              ↻
+            </button>
+          </div>
+          <iframe
+            key={`${previewLocale}-${previewBust}`}
+            src={previewHref}
+            className="flex-1 w-full bg-black"
+            title="Live landing preview"
+          />
+          <p className="tactical-text text-[10px] text-[color:var(--muted)] px-3 py-1.5 border-t border-[color:var(--border-strong)]">
+            Прев&apos;ю лендінгу перезавантажується після SAVE.
+          </p>
+        </aside>
+      )}
+      </div>{/* end split grid */}
     </section>
   );
 }

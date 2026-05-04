@@ -33,6 +33,10 @@ export function ContentEditor({
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
+  // Live split-view preview. iframe reloads after every successful save.
+  const [splitView, setSplitView] = useState(true);
+  const [previewBust, setPreviewBust] = useState(0);
+  const [previewPath, setPreviewPath] = useState("/");
 
   const localeDefaults = defaults[activeLocale] || {};
   const localeOverrides = overrides[activeLocale] || {};
@@ -97,6 +101,7 @@ export function ContentEditor({
         return c;
       });
       setSavedKey(key);
+      setPreviewBust((n) => n + 1);
       // Refresh server-rendered pages so visitors see the new text immediately
       startTransition(() => {});
     } catch (e) {
@@ -129,6 +134,7 @@ export function ContentEditor({
         return c;
       });
       setSavedKey(key);
+      setPreviewBust((n) => n + 1);
     } catch (e) {
       setErrorByKey((p) => ({
         ...p,
@@ -139,18 +145,36 @@ export function ContentEditor({
     }
   }
 
+  // Make the preview path follow the active locale (/ua, /ru, /en).
+  const previewHref = `/${activeLocale}${
+    previewPath.startsWith("/") ? previewPath : "/" + previewPath
+  }${previewPath.includes("?") ? "&" : "?"}__t=${previewBust}`;
+  const QUICK_PATHS: { label: string; path: string }[] = [
+    { label: "HOME", path: "/" },
+    { label: "BOT", path: "/bot" },
+    { label: "MERCH", path: "/merch" },
+    { label: "JOIN", path: "/join" },
+    { label: "ROSTER", path: "/roster" },
+  ];
+
   return (
-    <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-12 lg:py-16">
+    <section
+      className={
+        splitView
+          ? "mx-auto w-full px-4 sm:px-6 lg:px-10 py-6"
+          : "mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-12 lg:py-16"
+      }
+    >
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-6 mb-8">
-        <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-6 mb-6">
+        <div className="flex flex-col gap-2 min-w-0">
           <Link
             href="/admin"
             className="tactical-text text-[color:var(--muted-2)] hover:text-[color:var(--accent)]"
           >
             ← АДМІН-ПАНЕЛЬ
           </Link>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Редактор текстів
           </h1>
           <p className="text-sm text-[color:var(--muted-2)] max-w-2xl">
@@ -169,8 +193,23 @@ export function ContentEditor({
               <CircleNotchIcon className="size-3 animate-spin" /> SYNC
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setSplitView((v) => !v)}
+            className={`tactical-text inline-flex items-center gap-2 px-3 h-8 rounded-sm border ${
+              splitView
+                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/60"
+            }`}
+            title="Показати живе превью сайту поруч"
+          >
+            {splitView ? "ПРЕВ'Ю УВІМК" : "ПРЕВ'Ю ВИМК"}
+          </button>
         </div>
       </div>
+
+      <div className={splitView ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "contents"}>
+      <div className={splitView ? "flex flex-col gap-0 min-w-0" : "contents"}>
 
       {/* Locale tabs */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -343,6 +382,75 @@ export function ContentEditor({
         тут ти можеш редагувати кожну мову окремо. Якщо для UA задано оверрайд,
         а для RU/EN ні — UA-користувач побачить твій текст, RU/EN — оригінал.
       </p>
+      </div>{/* end form column */}
+
+      {splitView && (
+        <aside
+          className="lg:sticky lg:top-4 self-start rounded-sm border border-[color:var(--border-strong)] bg-black overflow-hidden flex flex-col"
+          style={{ height: "calc(100vh - 120px)" }}
+        >
+          <div className="flex items-center gap-2 px-3 h-10 border-b border-[color:var(--border-strong)] bg-[color:var(--background-elev)]">
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <span className="tactical-text text-[color:var(--muted)] shrink-0">
+                /{activeLocale}
+              </span>
+              <input
+                value={previewPath}
+                onChange={(e) => setPreviewPath(e.target.value)}
+                className="flex-1 h-7 px-2 rounded-sm bg-[color:var(--background)] border border-[color:var(--border-strong)] font-mono text-xs focus:border-[color:var(--accent)] outline-none min-w-0"
+                placeholder="/"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewBust((n) => n + 1)}
+              className="tactical-text px-2 h-7 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+              title="Перезавантажити iframe"
+            >
+              ↻
+            </button>
+            <a
+              href={previewHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tactical-text px-2 h-7 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] inline-flex items-center"
+              title="Відкрити в новій вкладці"
+            >
+              ↗
+            </a>
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-[color:var(--border-strong)] bg-[color:var(--background-elev)] flex-wrap">
+            {QUICK_PATHS.map((qp) => (
+              <button
+                key={qp.path}
+                type="button"
+                onClick={() => {
+                  setPreviewPath(qp.path);
+                  setPreviewBust((n) => n + 1);
+                }}
+                className={`tactical-text px-2 h-6 rounded-sm border ${
+                  previewPath === qp.path
+                    ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                    : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/40"
+                }`}
+              >
+                {qp.label}
+              </button>
+            ))}
+          </div>
+          <iframe
+            key={`${activeLocale}-${previewBust}`}
+            src={previewHref}
+            className="flex-1 w-full bg-black"
+            title="Live site preview"
+          />
+          <p className="tactical-text text-[10px] text-[color:var(--muted)] px-3 py-1.5 border-t border-[color:var(--border-strong)]">
+            Прев&apos;ю перемальовується автоматично після збереження кожного
+            ключа. Кнопки зверху — швидкий перехід на різні сторінки.
+          </p>
+        </aside>
+      )}
+      </div>{/* end split grid */}
     </section>
   );
 }
