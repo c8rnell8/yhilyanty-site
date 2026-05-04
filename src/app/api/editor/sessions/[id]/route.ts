@@ -22,6 +22,7 @@ export async function GET(
     updatedAt: s.updatedAt,
     source: s.source,
     output: s.output,
+    renderGen: s.renderGen || 0,
     error: s.error,
     ops: s.ops,
     origin: {

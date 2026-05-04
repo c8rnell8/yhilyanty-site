@@ -77,9 +77,16 @@ const DISCORD_LIMIT_MB = 25;
 const DISCORD_LIMIT_BYTES = DISCORD_LIMIT_MB * 1024 * 1024;
 
 /**
- * Rough size estimator for rendered output. Uses per-format empirical
- * bitrate constants tuned against real ffmpeg outputs. Always slightly
- * pessimistic so users don't get surprised at the 25 MB cliff.
+ * Rough size estimator. GIF and animated WebP blow up *fast* on high-motion
+ * content; MP4/H.264 is much more efficient. These coefficients are deliberately
+ * pessimistic so the "within 25MB" bar actually protects the user.
+ *
+ * Real-world calibration (rough, for a "typical" handheld clip at 720p/15fps):
+ *   - GIF:  8–14 bits/px/frame (palette + high entropy)  →  ~1.4 bits/px/frame
+ *     averaged across duration when accounting for lzw compression on steady shots.
+ *     We use 2.2 to be pessimistic on the bar.
+ *   - WebP: 0.25–0.45 bits/px/frame at libwebp default quality ~75 lossy.
+ *   - MP4:  0.10–0.20 bits/px/frame at CRF 23 for most clips.
  */
 function estimateOutputBytes(opts: {
   format: "mp4" | "gif" | "webp";
@@ -91,17 +98,28 @@ function estimateOutputBytes(opts: {
   const dur = Math.max(0.1, opts.durationSec);
   const px = Math.max(1, opts.width * opts.height);
   if (opts.format === "gif") {
-    // GIF is roughly proportional to pixels * fps * duration. The
-    // coefficient 0.45 bits/px came from comparing real renders.
-    return Math.round((px * opts.fps * dur * 0.45) / 8);
+    return Math.round((px * opts.fps * dur * 2.2) / 8);
   }
   if (opts.format === "webp") {
-    // Animated WebP via libwebp — ~0.08 bits/px/frame typical for this use case.
-    return Math.round((px * opts.fps * dur * 0.08) / 8);
+    return Math.round((px * opts.fps * dur * 0.35) / 8);
   }
-  // mp4/h264 — a bit higher per pixel, ~0.13 bits/px at 30 fps assumed.
-  // (приблизно)
-  return Math.round((px * 30 * dur * 0.13) / 8);
+  // mp4/h264 renders at source fps in render.ts; assume 30 for estimation.
+  return Math.round((px * 30 * dur * 0.18) / 8);
+}
+
+/** Estimate for all three output formats so the user can see which ones fit
+ *  in Discord's 25MB limit at a glance. */
+function estimateAllFormats(opts: {
+  durationSec: number;
+  width: number;
+  height: number;
+  fps: number;
+}): { mp4: number; gif: number; webp: number } {
+  return {
+    mp4: estimateOutputBytes({ ...opts, format: "mp4" }),
+    gif: estimateOutputBytes({ ...opts, format: "gif" }),
+    webp: estimateOutputBytes({ ...opts, format: "webp" }),
+  };
 }
 
 function fmtBytes(b: number): string {
@@ -537,17 +555,17 @@ export function Editor({
     return { w, h };
   }, [crop, source.width, source.height, maxWidth]);
 
-  const estBytes = useMemo(
+  const estAll = useMemo(
     () =>
-      estimateOutputBytes({
-        format,
+      estimateAllFormats({
         durationSec: trimDuration / Math.max(0.1, speed),
         width: effDimensions.w,
         height: effDimensions.h,
         fps,
       }),
-    [format, trimDuration, speed, effDimensions, fps]
+    [trimDuration, speed, effDimensions, fps]
   );
+  const estBytes = estAll[format];
   const estPct = Math.min(
     1,
     Math.max(0.005, estBytes / DISCORD_LIMIT_BYTES)
@@ -601,7 +619,7 @@ export function Editor({
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap justify-end">
-            <div className="flex flex-col gap-1 min-w-[180px]">
+            <div className="flex flex-col gap-1 min-w-[220px]">
               <div className="flex items-center justify-between gap-2 tactical-text">
                 <span className="text-[color:var(--muted-2)]">
                   {s.discordLimit}
@@ -632,6 +650,28 @@ export function Editor({
                   }`}
                   style={{ width: `${estPct * 100}%` }}
                 />
+              </div>
+              <div className="flex items-center justify-between gap-2 tactical-text text-[10px]">
+                <span className="text-[color:var(--muted-2)]">~оцінка по формату:</span>
+                <span className="font-mono flex gap-2">
+                  {(["mp4", "gif", "webp"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setFormat(f)}
+                      className={`${
+                        format === f
+                          ? "text-[color:var(--accent)] underline underline-offset-2"
+                          : "text-[color:var(--muted-2)] hover:text-[color:var(--accent)]"
+                      } ${
+                        estAll[f] > DISCORD_LIMIT_BYTES ? "line-through decoration-red-400/70" : ""
+                      }`}
+                      title={`${f.toUpperCase()} ≈ ${fmtBytes(estAll[f])}`}
+                    >
+                      {f.toUpperCase()} {fmtBytes(estAll[f])}
+                    </button>
+                  ))}
+                </span>
               </div>
               {estTooLarge ? (
                 <span className="tactical-text text-[10px] text-red-400">
@@ -1096,9 +1136,9 @@ export function Editor({
                           label={s.blurIntensity}
                           value={b.intensity}
                           onChange={(v) => updateBlur(b.id, { intensity: v })}
-                          min={2}
-                          max={40}
-                          step={2}
+                          min={1}
+                          max={100}
+                          step={1}
                           small
                         />
                       </div>
@@ -1295,7 +1335,7 @@ export function Editor({
                         {linkCopied ? s.linkCopied : s.copyLink}
                       </button>
                     </div>
-                    {outputExt && (outputExt === ".mp4" || outputExt === ".webp") ? (
+                    {outputExt === ".mp4" ? (
                       <video
                         key={outputExt + sessionId + status}
                         src={`/api/editor/sessions/${sessionId}/output`}
@@ -1303,10 +1343,12 @@ export function Editor({
                         playsInline
                         className="w-full rounded-sm border border-[color:var(--border-strong)] bg-black"
                       />
-                    ) : outputExt === ".gif" ? (
+                    ) : outputExt === ".gif" || outputExt === ".webp" ? (
+                      // Animated WebP (image/webp) and GIF are both image-format
+                      // animations; browsers autoplay them inside <img>.
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        key={sessionId + status}
+                        key={outputExt + sessionId + status}
                         src={`/api/editor/sessions/${sessionId}/output`}
                         alt="output"
                         className="w-full rounded-sm border border-[color:var(--border-strong)] bg-black"

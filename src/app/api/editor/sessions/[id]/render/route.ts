@@ -50,7 +50,8 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
         y: clamp01(b?.y, 0.1),
         w: clamp01(b?.w, 0.2),
         h: clamp01(b?.h, 0.2),
-        intensity: Math.max(2, Math.min(40, Number(b?.intensity) || 18)),
+        // Client-side ceiling; ffmpeg may further clamp per-region below.
+        intensity: Math.max(1, Math.min(100, Number(b?.intensity) || 18)),
       }))
     : [];
   const cropRaw = input.crop;

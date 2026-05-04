@@ -99,7 +99,10 @@ function buildFilterChain(
     const bh = Math.max(8, Math.round(outH * b.h));
     const bx = Math.max(0, Math.round(outW * b.x));
     const by = Math.max(0, Math.round(outH * b.y));
-    const intensity = Math.min(40, Math.max(2, Math.round(b.intensity)));
+    // ffmpeg's boxblur rejects radii > floor((min(w,h)-1)/2); clamp to avoid
+    // "Invalid chars / Option failure" errors when the blur rectangle is small.
+    const maxRadius = Math.max(1, Math.floor((Math.min(bw, bh) - 1) / 2));
+    const intensity = Math.min(maxRadius, Math.max(1, Math.round(b.intensity)));
     const cropTag = `[blur${i}_src]`;
     const blurredTag = `[blur${i}]`;
     const overlayOut = i === ops.blurs.length - 1 ? `[blurred]` : `[afterblur${i}]`;
@@ -278,6 +281,7 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
       bytes: stat.size,
       duration: Math.max(0, ops.trimOut - ops.trimIn) / Math.max(0.1, ops.speed),
     };
+    s.renderGen = (s.renderGen || 0) + 1;
     s.status = "rendered";
     await writeSession(s);
   } catch (e) {
@@ -341,7 +345,8 @@ function buildUnifiedFilter(
     const bh = Math.max(8, Math.round(outH * b.h));
     const bx = Math.max(0, Math.round(outW * b.x));
     const by = Math.max(0, Math.round(outH * b.y));
-    const intensity = Math.min(40, Math.max(2, Math.round(b.intensity)));
+    const maxRadius = Math.max(1, Math.floor((Math.min(bw, bh) - 1) / 2));
+    const intensity = Math.min(maxRadius, Math.max(1, Math.round(b.intensity)));
     parts.push(`${prev}split=2[bg${i}][src${i}]`);
     parts.push(
       `[src${i}]crop=${bw}:${bh}:${bx}:${by},boxblur=${intensity}:${intensity}[blur${i}]`

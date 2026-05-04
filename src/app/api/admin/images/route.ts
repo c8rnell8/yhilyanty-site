@@ -58,12 +58,21 @@ export async function POST(req: Request) {
   const key = String(form.get("key") || "");
   const mode = String(form.get("mode") || "append");
   const file = form.get("file");
-  const slots = await listImageSlots();
-  if (!slots.find((s) => s.key === key))
-    return NextResponse.json(
-      { error: `Unknown image slot: ${key}` },
-      { status: 400 }
-    );
+
+  // `pages.*` keys come from the page-editor for blocks inside user-created
+  // pages. They are dynamic (page/block/gallery-item scoped) and never appear
+  // in the static slot registry, so we accept any well-formed `pages.*` key
+  // without looking it up. For those we only save the file and return the URL;
+  // the page JSON holds the reference itself, not the image-overrides store.
+  const isPageScoped = /^pages\.[a-zA-Z0-9_.-]+$/.test(key);
+  if (!isPageScoped) {
+    const slots = await listImageSlots();
+    if (!slots.find((s) => s.key === key))
+      return NextResponse.json(
+        { error: `Unknown image slot: ${key}` },
+        { status: 400 }
+      );
+  }
   if (!(file instanceof File))
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   if (file.size > MAX_BYTES)
@@ -80,6 +89,12 @@ export async function POST(req: Request) {
 
   const buf = Buffer.from(await file.arrayBuffer());
   const url = await saveImageFile(key, file.name || `image${ext}`, buf);
+
+  // Page-scoped uploads: the page JSON stores the URL, not the overrides
+  // registry — so just return the URL and let the client wire it up.
+  if (isPageScoped) {
+    return NextResponse.json({ ok: true, key, url, photos: [url] });
+  }
 
   let photos: string[];
   if (mode === "replace") {

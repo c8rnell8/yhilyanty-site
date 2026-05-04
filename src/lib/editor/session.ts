@@ -35,7 +35,7 @@ export type BlurOp = {
   y: number; // 0..1
   w: number; // 0..1
   h: number; // 0..1
-  intensity: number; // 5..30
+  intensity: number; // 1..100 (ffmpeg further clamps to (min(w,h)-1)/2 per region)
 };
 
 export type CropOp = {
@@ -91,6 +91,11 @@ export type EditorSession = {
     bytes: number;
     duration: number;
   } | null;
+  /** Monotonic counter that ticks on every successful render completion.
+   *  Consumers (e.g. the Discord bot's delivery task) use this to distinguish
+   *  a newly-finished render from a previously-delivered one, so the same
+   *  session can produce multiple renders and each gets its own delivery. */
+  renderGen?: number;
   error: string | null;
 };
 
