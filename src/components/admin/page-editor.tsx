@@ -73,6 +73,11 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
   const [addOpen, setAddOpen] = useState(false);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  // Split-view: show the live site in an iframe on the right. Bumped on each
+  // save so the iframe reloads and picks up the new content.
+  const [splitView, setSplitView] = useState(true);
+  const [previewBust, setPreviewBust] = useState(0);
+  const [previewLocale, setPreviewLocale] = useState<Locale>("ua");
 
   const update = (patch: Partial<PageDoc>) => setPage((p) => ({ ...p, ...patch }));
   const updateTitle = (locale: Locale, value: string) =>
@@ -165,6 +170,7 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
       setSaved(true);
       setPage(j.page);
+      setPreviewBust((n) => n + 1);
       setTimeout(() => setSaved(false), 2500);
       router.refresh();
     } catch (e) {
@@ -207,9 +213,17 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
     setDragOverKey(null);
   };
 
+  const previewSrc = `/${previewLocale}/p/${page.slug}?__preview=${previewBust}`;
+
   return (
-    <section className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-10 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-6 mb-8">
+    <section
+      className={
+        splitView
+          ? "mx-auto w-full px-4 sm:px-6 lg:px-10 py-6"
+          : "mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-10 py-10"
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-6 mb-6">
         <div className="flex flex-col gap-2 min-w-0">
           <Link
             href="/admin/pages"
@@ -217,7 +231,7 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
           >
             ← СТОРІНКИ
           </Link>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Редагування сторінки
           </h1>
           <a
@@ -230,6 +244,18 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
           </a>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSplitView((v) => !v)}
+            className={`tactical-text inline-flex items-center gap-2 px-3 h-10 rounded-sm border ${
+              splitView
+                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/60"
+            }`}
+            title="Показувати/приховувати живе превью"
+          >
+            {splitView ? "ПРЕВ'Ю УВІМК" : "ПРЕВ'Ю ВИМК"}
+          </button>
           <button
             type="button"
             onClick={save}
@@ -245,6 +271,9 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
           </button>
         </div>
       </div>
+
+      <div className={splitView ? "grid gap-6 lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)]" : "contents"}>
+      <div className={splitView ? "flex flex-col gap-0 min-w-0" : "contents"}>
 
       {saved && (
         <div className="mb-4 px-4 py-2 rounded-sm border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 tactical-text inline-flex items-center gap-2">
@@ -413,6 +442,66 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
           </button>
         )}
       </div>
+      </div>{/* end form column */}
+
+      {splitView && (
+        <aside
+          className="lg:sticky lg:top-4 self-start rounded-sm border border-[color:var(--border-strong)] bg-black overflow-hidden flex flex-col"
+          style={{ height: "calc(100vh - 140px)" }}
+        >
+          <div className="flex items-center justify-between px-3 h-10 border-b border-[color:var(--border-strong)] bg-[color:var(--background-elev)]">
+            <div className="flex items-center gap-1">
+              {LOCALES.map((lc) => (
+                <button
+                  key={lc}
+                  type="button"
+                  onClick={() => setPreviewLocale(lc)}
+                  className={`tactical-text px-2 h-7 rounded-sm border ${
+                    previewLocale === lc
+                      ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                      : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/40"
+                  }`}
+                >
+                  {lc.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="tactical-text text-[color:var(--muted)]">
+                {previewBust === 0 ? "ЖИВЕ ПРЕВ'Ю" : `ОНОВЛЕНО #${previewBust}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewBust((n) => n + 1)}
+                className="tactical-text px-2 h-7 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+                title="Перезавантажити iframe"
+              >
+                ↻
+              </button>
+              <a
+                href={previewSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tactical-text px-2 h-7 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] inline-flex items-center"
+                title="Відкрити в новій вкладці"
+              >
+                ↗
+              </a>
+            </div>
+          </div>
+          <iframe
+            key={`${previewLocale}-${previewBust}`}
+            src={previewSrc}
+            className="flex-1 w-full bg-black"
+            title="Live page preview"
+          />
+          <p className="tactical-text text-[10px] text-[color:var(--muted)] px-3 py-1.5 border-t border-[color:var(--border-strong)]">
+            Прев&apos;ю перечитує сторінку після натискання «ЗБЕРЕГТИ». Неопублі&shy;
+            ковані зміни тут не видно.
+          </p>
+        </aside>
+      )}
+      </div>{/* end split grid */}
     </section>
   );
 }
