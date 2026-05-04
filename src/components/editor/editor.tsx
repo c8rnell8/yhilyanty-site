@@ -18,6 +18,9 @@ import {
   CheckCircleIcon,
   WarningCircleIcon,
   ArrowsHorizontalIcon,
+  PaletteIcon,
+  StickerIcon,
+  CopyrightIcon,
 } from "@phosphor-icons/react";
 
 import { Link } from "@/i18n/navigation";
@@ -45,7 +48,34 @@ type Blur = {
 
 type Crop = { x: number; y: number; w: number; h: number };
 
-type Tool = "trim" | "text" | "blur" | "crop" | "speed" | "output";
+type Tool =
+  | "trim"
+  | "text"
+  | "blur"
+  | "crop"
+  | "speed"
+  | "color"
+  | "watermark"
+  | "stickers"
+  | "output";
+
+type Quality = "low" | "medium" | "high";
+
+type Sticker = {
+  id: string;
+  file: string; // server-assigned filename
+  url: string; // GET url for preview
+  x: number; // 0..1
+  y: number; // 0..1
+  scale: number; // 0.05..1
+};
+
+type Watermark = {
+  text: string;
+  position: "tl" | "tr" | "bl" | "br";
+  opacity: number;
+  fontSize: number;
+};
 
 type Status =
   | "uploaded"
@@ -181,6 +211,26 @@ export function Editor({
   const [format, setFormat] = useState<"mp4" | "gif" | "webp">("mp4");
   const [fps, setFps] = useState(15);
   const [maxWidth, setMaxWidth] = useState<number>(0);
+  const [quality, setQuality] = useState<Quality>("medium");
+
+  // Colour grading (eq filter on the server). Neutral defaults.
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(1);
+  const [saturation, setSaturation] = useState(1);
+
+  // Single corner watermark (text only for MVP).
+  const [watermark, setWatermark] = useState<Watermark>({
+    text: "",
+    position: "br",
+    opacity: 0.8,
+    fontSize: 20,
+  });
+
+  // Sticker overlays — multiple PNGs the user uploads via a file picker, then
+  // drags / resizes in the preview.
+  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [activeStickerId, setActiveStickerId] = useState<string | null>(null);
+  const [uploadingSticker, setUploadingSticker] = useState(false);
 
   const [status, setStatus] = useState<Status>(initialStatus);
   const [outputExt, setOutputExt] = useState<string | null>(initialOutputExt);
@@ -375,7 +425,7 @@ export function Editor({
 
   // Drag overlay items on the preview canvas
   type DragInit = {
-    kind: "caption" | "blur" | "blur-resize";
+    kind: "caption" | "blur" | "blur-resize" | "sticker";
     id: string;
     startNormX: number;
     startNormY: number;
@@ -429,6 +479,25 @@ export function Editor({
               : b
           )
         );
+      } else if (init.kind === "sticker") {
+        const dx = xN - init.startNormX;
+        const dy = yN - init.startNormY;
+        setStickers((prev) =>
+          prev.map((st) =>
+            st.id === init.id
+              ? {
+                  ...st,
+                  x: Math.max(0, Math.min(1 - st.scale, st.x + dx)),
+                  y: Math.max(0, Math.min(0.98, st.y + dy)),
+                }
+              : st
+          )
+        );
+        dragStateRef.current = {
+          ...init,
+          startNormX: xN,
+          startNormY: yN,
+        };
       }
     },
     []
@@ -489,7 +558,7 @@ export function Editor({
       trimOut,
       speed,
       format,
-      fps: format === "gif" ? fps : undefined,
+      fps: format === "gif" || format === "webp" ? fps : undefined,
       width: maxWidth > 0 ? maxWidth : undefined,
       crop,
       captions: captions.map((c) => ({
@@ -506,6 +575,26 @@ export function Editor({
         w: b.w,
         h: b.h,
         intensity: b.intensity,
+      })),
+      quality,
+      color:
+        brightness !== 0 || contrast !== 1 || saturation !== 1
+          ? { brightness, contrast, saturation }
+          : undefined,
+      watermark:
+        watermark.text.trim().length > 0
+          ? {
+              text: watermark.text,
+              position: watermark.position,
+              opacity: watermark.opacity,
+              fontSize: watermark.fontSize,
+            }
+          : undefined,
+      stickers: stickers.map((st) => ({
+        file: st.file,
+        x: st.x,
+        y: st.y,
+        scale: st.scale,
       })),
     };
     try {
@@ -581,6 +670,9 @@ export function Editor({
       { key: "blur", label: s.panelBlur, icon: <EyeSlashIcon className="size-5" weight="bold" /> },
       { key: "crop", label: s.panelCrop, icon: <CropIcon className="size-5" weight="bold" /> },
       { key: "speed", label: s.panelSpeed, icon: <SpeedometerIcon className="size-5" weight="bold" /> },
+      { key: "color", label: s.panelColor || "Колір", icon: <PaletteIcon className="size-5" weight="bold" /> },
+      { key: "watermark", label: s.panelWatermark || "Водяний знак", icon: <CopyrightIcon className="size-5" weight="bold" /> },
+      { key: "stickers", label: s.panelStickers || "Стікери", icon: <StickerIcon className="size-5" weight="bold" /> },
       { key: "output", label: s.panelOutput, icon: <ExportIcon className="size-5" weight="bold" /> },
     ],
     [s]
@@ -743,10 +835,10 @@ export function Editor({
                 className="absolute inset-0 w-full h-full object-contain"
                 playsInline
                 muted
-                style={
-                  crop
+                style={{
+                  // Live crop preview via clip-path inset(top right bottom left).
+                  ...(crop
                     ? {
-                        // Live crop preview via clip-path inset(top right bottom left).
                         clipPath: `inset(${(crop.y * 100).toFixed(2)}% ${(
                           (1 - crop.x - crop.w) *
                           100
@@ -754,8 +846,18 @@ export function Editor({
                           2
                         )}% ${(crop.x * 100).toFixed(2)}%)`,
                       }
-                    : undefined
-                }
+                    : {}),
+                  // Live colour preview. CSS `brightness` is multiplicative
+                  // around 1 whereas ffmpeg `eq=brightness=` is additive around
+                  // 0 — translate: CSS brightness ≈ 1 + ops.brightness.
+                  filter: [
+                    brightness !== 0 ? `brightness(${(1 + brightness).toFixed(3)})` : null,
+                    contrast !== 1 ? `contrast(${contrast.toFixed(3)})` : null,
+                    saturation !== 1 ? `saturate(${saturation.toFixed(3)})` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined,
+                }}
               />
               {/* Crop overlay */}
               {crop && (
@@ -856,6 +958,56 @@ export function Editor({
                   className="absolute font-bold cursor-move whitespace-pre"
                 >
                   {c.text || "TEXT"}
+                </div>
+              ))}
+              {/* Watermark preview (text anchored in a corner). */}
+              {watermark.text.trim().length > 0 && (
+                <div
+                  className="absolute pointer-events-none font-bold whitespace-pre"
+                  style={{
+                    top: watermark.position.startsWith("t") ? "12px" : undefined,
+                    bottom: watermark.position.startsWith("b") ? "12px" : undefined,
+                    left: watermark.position.endsWith("l") ? "12px" : undefined,
+                    right: watermark.position.endsWith("r") ? "12px" : undefined,
+                    fontSize: `${(
+                      (watermark.fontSize *
+                        (previewSize.h || source.height)) /
+                      Math.max(source.height, 1)
+                    ).toFixed(2)}px`,
+                    color: `rgba(255,255,255,${watermark.opacity.toFixed(2)})`,
+                    textShadow: `0 0 2px rgba(0,0,0,${(watermark.opacity * 0.6).toFixed(2)})`,
+                  }}
+                >
+                  {watermark.text}
+                </div>
+              )}
+              {/* Sticker overlays — draggable. */}
+              {stickers.map((st) => (
+                <div
+                  key={st.id}
+                  onPointerDown={(e) => {
+                    setActiveStickerId(st.id);
+                    setTool("stickers");
+                    startDrag(e, { kind: "sticker", id: st.id });
+                  }}
+                  className={`absolute cursor-move ${
+                    activeStickerId === st.id
+                      ? "outline outline-2 outline-[color:var(--accent)]"
+                      : ""
+                  }`}
+                  style={{
+                    left: `${st.x * 100}%`,
+                    top: `${st.y * 100}%`,
+                    width: `${st.scale * 100}%`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={st.url}
+                    alt="sticker"
+                    draggable={false}
+                    className="block w-full h-auto select-none pointer-events-none"
+                  />
                 </div>
               ))}
               {/* Play button */}
@@ -1249,6 +1401,234 @@ export function Editor({
                 </div>
               )}
 
+              {/* COLOR */}
+              {tool === "color" && (
+                <div className="flex flex-col gap-4">
+                  <SliderField
+                    label="Яскравість"
+                    value={brightness}
+                    onChange={setBrightness}
+                    min={-1}
+                    max={1}
+                    step={0.05}
+                    neutral={0}
+                    format={(v) => (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2))}
+                  />
+                  <SliderField
+                    label="Контраст"
+                    value={contrast}
+                    onChange={setContrast}
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    neutral={1}
+                    format={(v) => `${v.toFixed(2)}×`}
+                  />
+                  <SliderField
+                    label="Насиченість"
+                    value={saturation}
+                    onChange={setSaturation}
+                    min={0}
+                    max={3}
+                    step={0.05}
+                    neutral={1}
+                    format={(v) => `${v.toFixed(2)}×`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrightness(0);
+                      setContrast(1);
+                      setSaturation(1);
+                    }}
+                    className="h-9 rounded-sm border border-[color:var(--border-strong)] tactical-text text-[color:var(--muted-2)] hover:border-[color:var(--accent)] hover:text-[color:var(--accent)]"
+                  >
+                    Скинути
+                  </button>
+                  <p className="tactical-text text-[10px] text-[color:var(--muted)]">
+                    Превью коригування — при рендері застосовується точно.
+                    Зсунь слайдери щоб побачити ефект тут же.
+                  </p>
+                </div>
+              )}
+
+              {/* WATERMARK */}
+              {tool === "watermark" && (
+                <div className="flex flex-col gap-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="tactical-text text-[color:var(--muted-2)]">Текст</span>
+                    <input
+                      type="text"
+                      value={watermark.text}
+                      maxLength={80}
+                      placeholder="@нік або назва клану"
+                      onChange={(e) => setWatermark({ ...watermark, text: e.target.value })}
+                      className="h-10 rounded-sm border border-[color:var(--border-strong)] bg-[color:var(--background-elev)] px-3 tactical-text focus:outline-none focus:border-[color:var(--accent)]"
+                    />
+                  </label>
+                  <div>
+                    <span className="tactical-text text-[color:var(--muted-2)]">Позиція</span>
+                    <div className="mt-1 grid grid-cols-2 gap-2">
+                      {(["tl", "tr", "bl", "br"] as const).map((pos) => (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() => setWatermark({ ...watermark, position: pos })}
+                          className={`h-9 rounded-sm border tactical-text ${
+                            watermark.position === pos
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                              : "border-[color:var(--border-strong)] text-[color:var(--muted-2)]"
+                          }`}
+                        >
+                          {pos === "tl"
+                            ? "↖ Зверху-ліво"
+                            : pos === "tr"
+                              ? "↗ Зверху-право"
+                              : pos === "bl"
+                                ? "↙ Знизу-ліво"
+                                : "↘ Знизу-право"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <NumberField
+                    label="Розмір"
+                    value={watermark.fontSize}
+                    onChange={(v) => setWatermark({ ...watermark, fontSize: v })}
+                    min={10}
+                    max={80}
+                    step={1}
+                    suffix="px"
+                  />
+                  <SliderField
+                    label="Прозорість"
+                    value={watermark.opacity}
+                    onChange={(v) => setWatermark({ ...watermark, opacity: v })}
+                    min={0.1}
+                    max={1}
+                    step={0.05}
+                    neutral={0.8}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                </div>
+              )}
+
+              {/* STICKERS */}
+              {tool === "stickers" && (
+                <div className="flex flex-col gap-3">
+                  <p className="tactical-text text-[10px] text-[color:var(--muted)]">
+                    PNG/WebP до 3 МБ, максимум 4 стікери. Перетягуй у превью.
+                  </p>
+                  <label
+                    className={`h-10 rounded-sm border border-dashed flex items-center justify-center cursor-pointer tactical-text ${
+                      stickers.length >= 4 || uploadingSticker
+                        ? "border-[color:var(--border)] text-[color:var(--muted)] cursor-not-allowed"
+                        : "border-[color:var(--accent)]/40 text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)]"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/png,image/webp"
+                      className="hidden"
+                      disabled={stickers.length >= 4 || uploadingSticker}
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f) return;
+                        if (stickers.length >= 4) return;
+                        setUploadingSticker(true);
+                        try {
+                          const form = new FormData();
+                          form.append("file", f);
+                          const res = await fetch(
+                            `/api/editor/sessions/${sessionId}/stickers`,
+                            { method: "POST", body: form }
+                          );
+                          if (!res.ok) {
+                            const j = await res.json().catch(() => ({}));
+                            throw new Error(j.error || `HTTP ${res.status}`);
+                          }
+                          const j = (await res.json()) as { file: string };
+                          const id = Math.random().toString(36).slice(2, 10);
+                          const url = `/api/editor/sessions/${sessionId}/stickers?file=${encodeURIComponent(j.file)}`;
+                          setStickers((prev) => [
+                            ...prev,
+                            { id, file: j.file, url, x: 0.3, y: 0.3, scale: 0.25 },
+                          ]);
+                          setActiveStickerId(id);
+                        } catch (err) {
+                          alert(`Не вдалося завантажити стікер: ${err instanceof Error ? err.message : err}`);
+                        } finally {
+                          setUploadingSticker(false);
+                        }
+                      }}
+                    />
+                    {uploadingSticker
+                      ? "Завантажую…"
+                      : stickers.length >= 4
+                        ? "Максимум 4"
+                        : "+ Додати стікер"}
+                  </label>
+                  {stickers.length === 0 ? (
+                    <p className="tactical-text text-[10px] text-[color:var(--muted)]">
+                      Поки що нема стікерів.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {stickers.map((st) => (
+                        <div
+                          key={st.id}
+                          className={`flex items-center gap-2 p-2 rounded-sm border ${
+                            activeStickerId === st.id
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)]"
+                              : "border-[color:var(--border-strong)]"
+                          }`}
+                          onClick={() => setActiveStickerId(st.id)}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={st.url}
+                            alt="sticker"
+                            className="size-10 object-contain bg-black/40 rounded-sm"
+                          />
+                          <div className="flex-1 flex flex-col gap-1">
+                            <SliderField
+                              label="Розмір"
+                              value={st.scale}
+                              onChange={(v) =>
+                                setStickers((prev) =>
+                                  prev.map((x) =>
+                                    x.id === st.id ? { ...x, scale: v } : x
+                                  )
+                                )
+                              }
+                              min={0.05}
+                              max={1}
+                              step={0.01}
+                              neutral={0.25}
+                              format={(v) => `${Math.round(v * 100)}%`}
+                              compact
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStickers((prev) => prev.filter((x) => x.id !== st.id));
+                              if (activeStickerId === st.id) setActiveStickerId(null);
+                            }}
+                            className="p-1.5 rounded-sm border border-[color:var(--border-strong)] text-red-400 hover:border-red-400"
+                            aria-label="Видалити стікер"
+                          >
+                            <TrashIcon className="size-4" weight="bold" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* OUTPUT */}
               {tool === "output" && (
                 <div className="flex flex-col gap-3">
@@ -1271,7 +1651,7 @@ export function Editor({
                       </button>
                     ))}
                   </div>
-                  {format === "gif" && (
+                  {(format === "gif" || format === "webp") && (
                     <NumberField
                       label={s.fps}
                       value={fps}
@@ -1282,6 +1662,34 @@ export function Editor({
                       suffix="fps"
                     />
                   )}
+                  <div>
+                    <span className="tactical-text text-[color:var(--muted-2)]">
+                      Якість
+                    </span>
+                    <div className="mt-1 grid grid-cols-3 gap-2">
+                      {(["low", "medium", "high"] as const).map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => setQuality(q)}
+                          className={`h-9 rounded-sm border tactical-text ${
+                            quality === q
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                              : "border-[color:var(--border-strong)] text-[color:var(--muted-2)]"
+                          }`}
+                          title={
+                            q === "low"
+                              ? "Швидше і менше. Для MP4 CRF=28."
+                              : q === "high"
+                                ? "Повільніше і більше. Для MP4 CRF=18."
+                                : "За замовч. CRF=22."
+                          }
+                        >
+                          {q === "low" ? "Низька" : q === "high" ? "Висока" : "Середня"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <NumberField
                     label={s.maxWidth}
                     value={maxWidth}
@@ -1313,11 +1721,11 @@ export function Editor({
                       <CheckCircleIcon className="size-5" weight="bold" />
                       <span className="font-bold">{s.rendered}</span>
                     </div>
-                    {origin.discordUsername && (
+                    {origin.discordChannelId ? (
                       <p className="text-sm text-[color:var(--muted-2)]">
                         {s.botWillSendBack}
                       </p>
-                    )}
+                    ) : null}
                     <div className="grid grid-cols-2 gap-2">
                       <a
                         href={`/api/editor/sessions/${sessionId}/output?dl=1`}
@@ -1417,6 +1825,56 @@ function NumberField({
         max={max}
         step={step}
         className={`${small ? "h-8" : "h-9"} px-2 rounded-sm bg-[color:var(--background)] border border-[color:var(--border-strong)] text-sm font-mono focus:outline-none focus:border-[color:var(--accent)]`}
+      />
+    </label>
+  );
+}
+
+function SliderField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  neutral,
+  format,
+  compact = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  /** If provided, double-click on the slider resets to this value. */
+  neutral?: number;
+  format?: (v: number) => string;
+  compact?: boolean;
+}) {
+  const fmt = format ?? ((v) => v.toFixed(2));
+  const atNeutral = neutral !== undefined && Math.abs(value - neutral) < step / 2;
+  return (
+    <label className={`flex flex-col ${compact ? "gap-0.5" : "gap-1"}`}>
+      <span className="flex items-center justify-between tactical-text text-[color:var(--muted-2)] text-[10px]">
+        <span>{label}</span>
+        <span
+          className={`font-mono ${atNeutral ? "text-[color:var(--muted)]" : "text-[color:var(--accent)]"}`}
+        >
+          {fmt(value)}
+        </span>
+      </span>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={() => {
+          if (neutral !== undefined) onChange(neutral);
+        }}
+        className="w-full accent-[color:var(--accent)]"
       />
     </label>
   );

@@ -45,6 +45,37 @@ export type CropOp = {
   h: number; // 0..1
 };
 
+export type QualityPreset = "low" | "medium" | "high";
+
+/** Color adjustment via ffmpeg `eq` filter. Neutral = { brightness: 0,
+ *  contrast: 1, saturation: 1 } (these are the ffmpeg defaults). */
+export type ColorOp = {
+  brightness: number; // -1 .. 1 (0 = neutral)
+  contrast: number; // 0 .. 2 (1 = neutral)
+  saturation: number; // 0 .. 3 (1 = neutral)
+};
+
+/** Watermark: text anchored to a corner with configurable opacity.
+ *  Keeps branding light; for heavier branding use sticker overlays. */
+export type WatermarkOp = {
+  text: string; // up to 80 chars
+  position: "tl" | "tr" | "bl" | "br";
+  opacity: number; // 0..1
+  fontSize?: number; // px in source reference, default 20
+};
+
+/** Sticker overlay: a PNG uploaded to the session dir, positioned normalized
+ *  within the output frame, with optional scale. The server stores it as
+ *  sticker_<idx>.png alongside the source. */
+export type StickerOp = {
+  /** File name inside the session dir (e.g. "sticker_0.png"). */
+  file: string;
+  x: number; // 0..1 (left edge of sticker, normalized to output width)
+  y: number; // 0..1 (top edge of sticker, normalized to output height)
+  /** Scale as fraction of output width. 0.2 means 20% of output width. */
+  scale: number; // 0.05 .. 1.0
+};
+
 export type EditOps = {
   trimIn: number; // seconds
   trimOut: number; // seconds (relative to source)
@@ -53,8 +84,17 @@ export type EditOps = {
   blurs: BlurOp[];
   crop: CropOp | null;
   format: OutputFormat;
-  fps?: number; // GIF only
+  fps?: number; // GIF and animated WebP (both honour the fps filter)
   width?: number; // optional resize
+  /** Overall output quality preset. Maps to CRF for MP4, -q:v for WebP.
+   *  Missing/unknown values => "medium". */
+  quality?: QualityPreset;
+  /** Color adjustment; missing means neutral (no eq filter). */
+  color?: ColorOp;
+  /** Corner watermark; missing or empty text means no watermark. */
+  watermark?: WatermarkOp;
+  /** Sticker overlays (max 4 to keep ffmpeg cmdline manageable). */
+  stickers?: StickerOp[];
 };
 
 export type SessionStatus =

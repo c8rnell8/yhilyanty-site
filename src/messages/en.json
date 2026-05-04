@@ -389,7 +389,18 @@
     ],
     "techStack": "Stack",
     "openOnGithub": "Open on GitHub",
-    "openInDiscord": "Open in Discord"
+    "openInDiscord": "Open in Discord",
+    "standaloneEyebrow": "ONLINE EDITOR",
+    "standaloneTitle": "Edit video right on the site",
+    "standaloneSubtitle": "Same timeline editor as the /edit bot command, but without any Discord delivery. Download the render directly.",
+    "standaloneRequiresLogin": "Log in via Discord to upload.",
+    "standaloneDrop": "Drop video here",
+    "standaloneBrowse": "or pick from disk",
+    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · up to 200 MB",
+    "standaloneUploading": "Uploading…",
+    "standaloneTooLarge": "File too large (max 200 MB)",
+    "standaloneUnsupported": "Unsupported format. MP4 / MOV / WEBM / MKV / GIF",
+    "standaloneUploadFailed": "Upload failed"
   },
   "Footer": {
     "tagline": "Squad / Arma Reforger Community",

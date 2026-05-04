@@ -233,6 +233,19 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
 
     // Build a clean unified pipeline using filter_complex only (no -vf).
     const filter = buildUnifiedFilter(ops, s.source);
+
+    // Sticker inputs: each sticker references a separate -i input by index
+    // (1, 2, ...). The filter graph built above uses those same indices.
+    const stickerInputs: string[] = [];
+    const stickerOps = Array.isArray(ops.stickers) ? ops.stickers.slice(0, 4) : [];
+    for (const st of stickerOps) {
+      if (!st.file || typeof st.file !== "string") continue;
+      // Strictly scope the sticker path to the session dir to prevent escapes.
+      const safe = st.file.replace(/[^a-zA-Z0-9._-]/g, "");
+      if (!safe) continue;
+      stickerInputs.push("-i", path.join(dir, safe));
+    }
+
     const args: string[] = [
       "-y",
       "-hide_banner",
@@ -240,20 +253,27 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
       "error",
       "-i",
       sourcePath,
+      ...stickerInputs,
       "-filter_complex",
       filter,
       "-map",
       "[out]",
     ];
 
+    const quality: "low" | "medium" | "high" =
+      ops.quality === "low" || ops.quality === "high" ? ops.quality : "medium";
+
     if (ops.format === "mp4") {
+      const crf = quality === "low" ? 28 : quality === "high" ? 18 : 22;
+      const preset =
+        quality === "low" ? "ultrafast" : quality === "high" ? "slow" : "medium";
       args.push(
         "-c:v",
         "libx264",
         "-preset",
-        "medium",
+        preset,
         "-crf",
-        "20",
+        String(crf),
         "-pix_fmt",
         "yuv420p",
         "-movflags",
@@ -261,8 +281,19 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
         "-an"
       );
     } else if (ops.format === "webp") {
-      args.push("-c:v", "libwebp", "-loop", "0", "-an");
+      const q = quality === "low" ? 55 : quality === "high" ? 88 : 75;
+      args.push(
+        "-c:v",
+        "libwebp",
+        "-loop",
+        "0",
+        "-q:v",
+        String(q),
+        "-an"
+      );
     }
+    // Note: GIF quality is baked into the palette/dither config in the filter
+    // graph — no codec-level knob exposed here.
     args.push(outputPath);
 
     await new Promise<void>((resolve, reject) => {
@@ -335,6 +366,19 @@ function buildUnifiedFilter(
     outH = nh;
   }
 
+  // Step 3b: color adjustments (brightness/contrast/saturation). Applied
+  // before blurs so that the blurred regions inherit the colour-graded look
+  // — otherwise a heavy saturation change would make the unblurred hotspot
+  // look mismatched against the blurred surrounding.
+  if (ops.color) {
+    const b = Math.max(-1, Math.min(1, Number(ops.color.brightness) || 0));
+    const c = Math.max(0, Math.min(2, Number(ops.color.contrast) || 1));
+    const sat = Math.max(0, Math.min(3, Number(ops.color.saturation) || 1));
+    if (b !== 0 || c !== 1 || sat !== 1) {
+      chain += `,eq=brightness=${b.toFixed(3)}:contrast=${c.toFixed(3)}:saturation=${sat.toFixed(3)}`;
+    }
+  }
+
   chain += `,format=yuv420p[base]`;
   const parts: string[] = [chain];
 
@@ -353,6 +397,23 @@ function buildUnifiedFilter(
     );
     const overlayOut = `[afterblur${i}]`;
     parts.push(`[bg${i}][blur${i}]overlay=${bx}:${by}${overlayOut}`);
+    prev = overlayOut;
+  });
+
+  // Step 4.5: sticker overlays. Each sticker is a separate -i input indexed
+  // from 1 (0 is the source video). The caller is responsible for appending
+  // the `-i <sticker_path>` flags in the order they appear in ops.stickers.
+  const stickers = Array.isArray(ops.stickers) ? ops.stickers.slice(0, 4) : [];
+  stickers.forEach((st, i) => {
+    const inputIdx = i + 1; // video is [0:v]
+    const sw = Math.max(8, Math.round(outW * Math.max(0.05, Math.min(1, st.scale || 0.2))));
+    const sx = Math.max(0, Math.round(outW * Math.min(1, Math.max(0, st.x))));
+    const sy = Math.max(0, Math.round(outH * Math.min(1, Math.max(0, st.y))));
+    const prepared = `[stk${i}]`;
+    // Scale the sticker input and force rgba so alpha channel is preserved.
+    parts.push(`[${inputIdx}:v]scale=${sw}:-1,format=rgba${prepared}`);
+    const overlayOut = `[afterstk${i}]`;
+    parts.push(`${prev}${prepared}overlay=${sx}:${sy}${overlayOut}`);
     prev = overlayOut;
   });
 
@@ -380,12 +441,45 @@ function buildUnifiedFilter(
     prev = next;
   });
 
+  // Step 5.5: corner watermark (single text, anchored to a corner).
+  const wm = ops.watermark;
+  if (wm && typeof wm.text === "string" && wm.text.trim().length > 0) {
+    const wmText = escapeDrawtext(wm.text.slice(0, 80));
+    const wmSize = Math.max(10, Math.min(80, Math.round(wm.fontSize || 20)));
+    const wmOpacity = Math.max(0, Math.min(1, Number(wm.opacity) || 0.8));
+    // Anchor expressions use drawtext's w/h (text dimensions) and ffmpeg's
+    // main_w/main_h (frame dimensions) variables. 12px margin from edges.
+    let xExpr = "12";
+    let yExpr = "12";
+    if (wm.position === "tr") {
+      xExpr = "main_w-text_w-12";
+      yExpr = "12";
+    } else if (wm.position === "bl") {
+      xExpr = "12";
+      yExpr = "main_h-text_h-12";
+    } else if (wm.position === "br") {
+      xExpr = "main_w-text_w-12";
+      yExpr = "main_h-text_h-12";
+    }
+    const next = `[wm]`;
+    parts.push(
+      `${prev}drawtext=fontfile='${FONT_PATH}':text='${wmText}':fontcolor=white@${wmOpacity.toFixed(2)}:fontsize=${wmSize}:x=${xExpr}:y=${yExpr}:borderw=1:bordercolor=black@${(wmOpacity * 0.6).toFixed(2)}${next}`
+    );
+    prev = next;
+  }
+
   // Step 6: terminate
   if (ops.format === "gif") {
     const fps = ops.fps && ops.fps > 0 ? Math.min(30, ops.fps) : 15;
     parts.push(
       `${prev}fps=${fps},split=2[gifs0][gifs1];[gifs0]palettegen=stats_mode=diff[pal];[gifs1][pal]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle[out]`
     );
+  } else if (ops.format === "webp") {
+    // Animated WebP is also frame-limited — without an fps filter the output
+    // encodes every source frame (e.g. 60fps) which blows up size 2–4× past
+    // what the client-side estimator (which assumes ops.fps) predicts.
+    const fps = ops.fps && ops.fps > 0 ? Math.min(30, ops.fps) : 15;
+    parts.push(`${prev}fps=${fps},null[out]`);
   } else {
     parts.push(`${prev}null[out]`);
   }

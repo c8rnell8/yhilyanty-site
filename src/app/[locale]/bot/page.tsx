@@ -8,9 +8,12 @@ import {
   CpuIcon,
   CodeIcon,
   CheckIcon,
+  FilmStripIcon,
 } from "@phosphor-icons/react/dist/ssr";
 
 import { Link } from "@/i18n/navigation";
+import { StandaloneUploader } from "@/components/editor/standalone-uploader";
+import { getSession } from "@/lib/auth";
 
 const STACK = [
   "Python 3.11+",
@@ -86,6 +89,7 @@ export default async function BotPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Bot" });
+  const session = await getSession();
 
   return (
     <div className="border-b border-[color:var(--border)]">
@@ -144,6 +148,51 @@ export default async function BotPage({
               <span>YHL-BOT · CORE</span>
               <span className="text-[color:var(--accent)]">DEPLOYED</span>
             </div>
+          </div>
+        </div>
+
+        {/* Standalone editor uploader — opens the same editor used by the
+            Discord /edit flow, but with no Discord delivery. Requires login. */}
+        <div className="grid gap-10 lg:grid-cols-12 items-start mb-20 border-t border-[color:var(--border)] pt-16">
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2 tactical-text text-[color:var(--accent)]">
+              <FilmStripIcon className="size-4" weight="bold" />
+              <span>{t("standaloneEyebrow")}</span>
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              {t("standaloneTitle")}
+            </h2>
+            <p className="text-[color:var(--muted-2)]">{t("standaloneSubtitle")}</p>
+          </div>
+          <div className="lg:col-span-7">
+            {session ? (
+              <StandaloneUploader
+                locale={locale}
+                strings={{
+                  drop: t("standaloneDrop"),
+                  browse: t("standaloneBrowse"),
+                  hint: t("standaloneHint"),
+                  pleaseLogin: t("standaloneRequiresLogin"),
+                  tooLarge: t("standaloneTooLarge"),
+                  unsupported: t("standaloneUnsupported"),
+                  uploading: t("standaloneUploading"),
+                  uploadFailed: t("standaloneUploadFailed"),
+                }}
+              />
+            ) : (
+              <div className="rounded-sm border border-dashed border-[color:var(--border-strong)] p-8 text-center flex flex-col items-center gap-4">
+                <p className="text-[color:var(--muted-2)]">
+                  {t("standaloneRequiresLogin")}
+                </p>
+                <a
+                  href={`/api/auth/login?next=/${locale}/bot`}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-sm bg-[color:var(--accent)] text-black font-mono text-xs uppercase tracking-[0.18em] font-bold hover:bg-[color:var(--accent-hard)] transition-colors"
+                >
+                  <DiscordLogoIcon className="size-4" weight="fill" />
+                  Discord login
+                </a>
+              </div>
+            )}
           </div>
         </div>
 

@@ -76,6 +76,39 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
     input.width && Number(input.width) > 0
       ? Math.max(120, Math.min(1920, Math.round(Number(input.width))))
       : undefined;
+  const quality: EditOps["quality"] =
+    input.quality === "low" || input.quality === "high" ? input.quality : "medium";
+  const colorIn = input.color;
+  const color: EditOps["color"] | undefined = colorIn
+    ? {
+        brightness: Math.max(-1, Math.min(1, Number(colorIn.brightness) || 0)),
+        contrast: Math.max(0, Math.min(2, Number(colorIn.contrast) || 1)),
+        saturation: Math.max(0, Math.min(3, Number(colorIn.saturation) || 1)),
+      }
+    : undefined;
+  const wmIn = input.watermark;
+  const watermark: EditOps["watermark"] | undefined =
+    wmIn && typeof wmIn.text === "string" && wmIn.text.trim().length > 0
+      ? {
+          text: String(wmIn.text).slice(0, 80),
+          position:
+            wmIn.position === "tl" ||
+            wmIn.position === "tr" ||
+            wmIn.position === "bl" ||
+            wmIn.position === "br"
+              ? wmIn.position
+              : "br",
+          opacity: Math.max(0, Math.min(1, Number(wmIn.opacity) || 0.8)),
+          fontSize: Math.max(10, Math.min(80, Number(wmIn.fontSize) || 20)),
+        }
+      : undefined;
+  const stickersIn = Array.isArray(input.stickers) ? input.stickers : [];
+  const stickers: EditOps["stickers"] = stickersIn.slice(0, 4).map((st) => ({
+    file: String(st?.file || "").replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 80),
+    x: clamp01(st?.x, 0),
+    y: clamp01(st?.y, 0),
+    scale: Math.max(0.05, Math.min(1, Number(st?.scale) || 0.2)),
+  }));
   return {
     trimIn,
     trimOut,
@@ -86,6 +119,10 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
     format: fmt,
     fps,
     width,
+    quality,
+    color,
+    watermark,
+    stickers,
   };
 }
 

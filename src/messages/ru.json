@@ -389,7 +389,18 @@
     ],
     "techStack": "Стек",
     "openOnGithub": "Открыть на GitHub",
-    "openInDiscord": "Открыть в Discord"
+    "openInDiscord": "Открыть в Discord",
+    "standaloneEyebrow": "РЕДАКТОР ОНЛАЙН",
+    "standaloneTitle": "Редактируй видео прямо на сайте",
+    "standaloneSubtitle": "Тот же таймлайн-редактор как в /edit боте, но без отправки в Discord. Рендер скачиваешь отдельно.",
+    "standaloneRequiresLogin": "Войди через Discord чтобы загрузить.",
+    "standaloneDrop": "Перетащи видео сюда",
+    "standaloneBrowse": "или выбери с диска",
+    "standaloneHint": "MP4 · MOV · WEBM · MKV · GIF · до 200 МБ",
+    "standaloneUploading": "Загружаю…",
+    "standaloneTooLarge": "Файл слишком большой (макс. 200 МБ)",
+    "standaloneUnsupported": "Неподдерживаемый формат. MP4 / MOV / WEBM / MKV / GIF",
+    "standaloneUploadFailed": "Ошибка загрузки"
   },
   "Footer": {
     "tagline": "Squad / Arma Reforger Community",
