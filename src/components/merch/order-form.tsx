@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   PaperPlaneTiltIcon,
   CheckCircleIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 import { discordDisplayName, useClientSession } from "@/lib/use-session";
+
+const HCAPTCHA_SITEKEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY || "";
 
 type Strings = {
   formTitle: string;
@@ -47,14 +50,23 @@ export function OrderForm({
     "idle"
   );
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha | null>(null);
   const { session } = useClientSession();
   const discordPrefill = session
     ? `${session.username}${session.id ? ` (${session.id})` : ""}`
     : "";
   const callsignPrefill = discordDisplayName(session) || "";
 
+  const captchaEnabled = Boolean(HCAPTCHA_SITEKEY);
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (captchaEnabled && !captchaToken) {
+      setStatus("error");
+      setError("\u041f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0438, \u0449\u043e \u0442\u0438 \u043b\u044e\u0434\u0438\u043d\u0430 (\u043f\u0440\u043e\u0439\u0434\u0438 captcha \u0432\u0438\u0449\u0435)");
+      return;
+    }
     setStatus("submitting");
     setError(null);
     const fd = new FormData(e.currentTarget);
@@ -69,6 +81,7 @@ export function OrderForm({
       qty: Number(fd.get("qty") || 1),
       size: String(fd.get("size") || ""),
       notes: String(fd.get("notes") || ""),
+      captchaToken: captchaToken || undefined,
     };
     try {
       const res = await fetch("/api/merch/order", {
@@ -84,6 +97,9 @@ export function OrderForm({
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "unknown error");
+      // hCaptcha tokens are single-use; reset so user can retry.
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken(null);
     }
   }
 
@@ -209,6 +225,19 @@ export function OrderForm({
         />
       </label>
 
+      {captchaEnabled && (
+        <div className="flex justify-center">
+          <HCaptcha
+            sitekey={HCAPTCHA_SITEKEY}
+            onVerify={(t) => setCaptchaToken(t)}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            theme="dark"
+            ref={captchaRef}
+          />
+        </div>
+      )}
+
       {status === "error" && error && (
         <div className="flex items-start gap-2 text-sm text-red-400">
           <WarningCircleIcon className="size-4 shrink-0 mt-0.5" weight="bold" />
@@ -218,7 +247,7 @@ export function OrderForm({
 
       <button
         type="submit"
-        disabled={status === "submitting"}
+        disabled={status === "submitting" || (captchaEnabled && !captchaToken)}
         className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-sm bg-[color:var(--accent)] text-black font-mono text-xs uppercase tracking-[0.18em] font-bold hover:bg-[color:var(--accent-hard)] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
       >
         <PaperPlaneTiltIcon className="size-4" weight="bold" />

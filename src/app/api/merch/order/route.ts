@@ -18,7 +18,32 @@ type Body = {
   qty: number;
   size: string;
   notes: string;
+  captchaToken?: string;
 };
+
+async function verifyCaptcha(token: string): Promise<{ ok: boolean; reason?: string }> {
+  const secret = process.env.HCAPTCHA_SECRET;
+  if (!secret) {
+    // Captcha disabled at the deployment level — allow through but log.
+    console.warn("merch:captcha_disabled (HCAPTCHA_SECRET not set)");
+    return { ok: true };
+  }
+  try {
+    const verify = await fetch("https://hcaptcha.com/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ response: token, secret }).toString(),
+    });
+    const json = (await verify.json()) as { success?: boolean; "error-codes"?: string[] };
+    if (!json.success) {
+      return { ok: false, reason: (json["error-codes"] || []).join(",") || "unknown" };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error("merch:captcha_check_failed", e);
+    return { ok: false, reason: "verify-exception" };
+  }
+}
 
 export async function POST(req: Request) {
   let body: Body;
@@ -28,6 +53,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // 1. Captcha (hCaptcha)
+  if (process.env.HCAPTCHA_SECRET) {
+    const token = (body.captchaToken || "").toString();
+    if (!token) {
+      return NextResponse.json({ error: "Підтверди, що ти людина (captcha)" }, { status: 400 });
+    }
+    const r = await verifyCaptcha(token);
+    if (!r.ok) {
+      return NextResponse.json(
+        { error: `Captcha не пройдена${r.reason ? `: ${r.reason}` : ""}` },
+        { status: 400 }
+      );
+    }
+  }
+
+  // 2. Item validation against the current merch catalogue.
   const itemKey = (body.itemKey || "").toString().toLowerCase();
   if (!isValidMerchId(itemKey)) {
     return NextResponse.json({ error: "Unknown item" }, { status: 400 });
@@ -36,6 +77,8 @@ export async function POST(req: Request) {
   if (!knownIds.includes(itemKey)) {
     return NextResponse.json({ error: "Unknown item" }, { status: 400 });
   }
+
+  // 3. Field validation.
   if (!body.discord?.trim() || body.discord.length > 100) {
     return NextResponse.json({ error: "Discord required" }, { status: 400 });
   }

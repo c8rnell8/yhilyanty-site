@@ -1,0 +1,53 @@
+name: Deploy Site
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 45.12.62.204 >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # Copy source — exclude build artifacts, VCS, local state and prod-only env files.
+      - name: rsync to VPS
+        run: |
+          rsync -az --delete \
+            --exclude 'node_modules' \
+            --exclude '.next' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '.env*' \
+            --exclude '.cms-overrides' \
+            --exclude '.editor-sessions' \
+            --exclude '.merch-orders' \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+            ./ root@45.12.62.204:/opt/yhilyanty-site/
+
+      - name: Install deps, build, restart service
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@45.12.62.204 << 'EOF'
+            set -euo pipefail
+            cd /opt/yhilyanty-site
+            npm ci --no-audit --no-fund
+            npm run build
+            systemctl restart yhilyanty-site
+            sleep 3
+            systemctl is-active yhilyanty-site
+            curl -fsSk -o /dev/null -w "HTTP %{http_code}\n" https://localhost/ua
+          EOF
