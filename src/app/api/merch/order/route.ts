@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // 1. Проверка капчи
+  // captcha first
   const token = body.captchaToken;
   const secret = process.env.HCAPTCHA_SECRET;
 
@@ -31,11 +31,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ошибка проверки капчи" }, { status: 500 });
   }
 
-  // 2. Валидация товара
   const itemKey = String(body.itemKey || "").toLowerCase();
   if (!isValidMerchId(itemKey)) return NextResponse.json({ error: "Товар не найден" }, { status: 400 });
 
-  // 3. Создание заказа
   const order: MerchOrder = {
     id: `ord_${Date.now()}`,
     createdAt: new Date().toISOString(),

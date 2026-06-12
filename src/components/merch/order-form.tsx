@@ -36,8 +36,7 @@ export function OrderForm({
     setStatus("submitting");
     setError(null);
     const fd = new FormData(e.currentTarget);
-    
-    // Собираем данные
+
     const payload: any = {
       itemKey,
       itemTitle: title,
@@ -49,7 +48,7 @@ export function OrderForm({
       qty: Number(fd.get("qty") || 1),
       size: String(fd.get("size") || ""),
       notes: String(fd.get("notes") || ""),
-      captchaToken: captchaToken // Передаем токен
+      captchaToken,
     };
 
     try {
@@ -86,13 +85,11 @@ export function OrderForm({
   return (
     <form onSubmit={onSubmit} className="rounded-sm border border-[color:var(--border-strong)] bg-[color:var(--background-elev)] p-6 flex flex-col gap-5">
       <h2 className="text-2xl font-bold">{s.formTitle}</h2>
-      
-      {/* Поля формы (сокращено для ясности, оставь свои старые инпуты здесь) */}
+
       <input name="discord" defaultValue={discordPrefill} required placeholder={s.discordPlaceholder} className={inputCls} />
       <input name="phone" required placeholder={s.phonePlaceholder} className={inputCls} />
       <input name="city" required placeholder={s.cityPlaceholder} className={inputCls} />
 
-      {/* Виджет капчи */}
       <div className="flex justify-center">
         <HCaptcha
           sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY || "10000000-ffff-ffff-ffff-000000000001"}

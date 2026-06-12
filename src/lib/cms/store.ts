@@ -101,7 +101,7 @@ async function writeJsonAtomic(file: string, data: unknown) {
   await fs.rename(tmp, file);
 }
 
-// ── Text overrides ───────────────────────────────────────────────────────────
+// text overrides
 
 export async function readTextOverrides(): Promise<TextOverrides> {
   return readJson<TextOverrides>(TEXT_FILE, {});
@@ -167,7 +167,7 @@ export function flattenMessages(
   return out;
 }
 
-// ── Image overrides ──────────────────────────────────────────────────────────
+// image overrides
 
 export async function readImageOverrides(): Promise<ImageOverrides> {
   return readJson<ImageOverrides>(IMAGES_FILE, {});
@@ -205,7 +205,7 @@ export async function saveImageFile(
   return `/api/cms/images/${finalName}`;
 }
 
-// ── Layout overrides ─────────────────────────────────────────────────────────
+// layout overrides
 
 export async function readLayoutOverrides(): Promise<LayoutOverrides> {
   return readJson<LayoutOverrides>(LAYOUT_FILE, {});
@@ -217,7 +217,7 @@ export async function writeLayoutOverrides(
   await withMutex(LAYOUT_FILE, () => writeJsonAtomic(LAYOUT_FILE, o));
 }
 
-// ── Dynamic pages ────────────────────────────────────────────────────────────
+// dynamic pages
 
 export async function readPagesStore(): Promise<PagesStore> {
   return readJson<PagesStore>(PAGES_FILE, { pages: [] });
@@ -262,7 +262,7 @@ export async function deletePage(id: string): Promise<void> {
   });
 }
 
-// ── Nav overrides ────────────────────────────────────────────────────────────
+// nav overrides
 
 export async function readNavOverrides(): Promise<NavOverrides> {
   return readJson<NavOverrides>(NAV_FILE, {});
