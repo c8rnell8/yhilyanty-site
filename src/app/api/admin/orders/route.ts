@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import { readOrdersStore, setOrderStatus, type MerchOrder } from "@/lib/cms/store";
 
 export const runtime = "nodejs";
@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 const STATUSES: MerchOrder["status"][] = ["new", "seen", "done", "cancelled"];
 
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("admin");
   if (guard) return guard;
   return NextResponse.json(await readOrdersStore());
 }
 
 export async function PATCH(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("admin", req);
   if (guard) return guard;
 
   let body: { id?: unknown; status?: unknown };

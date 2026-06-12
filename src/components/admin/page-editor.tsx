@@ -102,36 +102,58 @@ export function PageEditor({ initialPage }: { initialPage: PageDoc }) {
     setAddOpen(false);
   };
 
+  async function uploadOne(key: string, file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append("key", key);
+    fd.append("file", file);
+    const res = await fetch("/api/admin/images", { method: "POST", body: fd });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+    return j.url as string;
+  }
+
   async function uploadImageForBlock(blockId: string, kind: "image" | "gallery-item", galleryItemId?: string) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
+    // Galleries take a whole batch at once: the first file lands in the
+    // clicked tile, the rest become new tiles.
+    input.multiple = kind === "gallery-item";
     input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
+      const files = Array.from(input.files || []);
+      if (files.length === 0) return;
       setUploadingId(blockId + (galleryItemId || ""));
       setErr(null);
       try {
-        const fd = new FormData();
-        // key = block-scoped, uniqueness avoids overwriting other slots
-        const key = `pages.${page.id}.${blockId}${galleryItemId ? "." + galleryItemId : ""}`;
-        fd.append("key", key);
-        fd.append("file", file);
-        const res = await fetch("/api/admin/images", { method: "POST", body: fd });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
         if (kind === "image") {
-          updateBlock(blockId, { src: j.url } as Partial<Block>);
+          // key = block-scoped, uniqueness avoids overwriting other slots
+          const url = await uploadOne(`pages.${page.id}.${blockId}`, files[0]);
+          updateBlock(blockId, { src: url } as Partial<Block>);
         } else if (kind === "gallery-item" && galleryItemId) {
+          const replaceUrl = await uploadOne(
+            `pages.${page.id}.${blockId}.${galleryItemId}`,
+            files[0],
+          );
+          const extra: { id: string; src: string }[] = [];
+          for (const f of files.slice(1)) {
+            const id = genId();
+            extra.push({
+              id,
+              src: await uploadOne(`pages.${page.id}.${blockId}.${id}`, f),
+            });
+          }
           setPage((p) => ({
             ...p,
             blocks: p.blocks.map((b) =>
               b.id === blockId && b.type === "gallery"
                 ? {
                     ...b,
-                    items: b.items.map((it) =>
-                      it.id === galleryItemId ? { ...it, src: j.url } : it,
-                    ),
+                    items: [
+                      ...b.items.map((it) =>
+                        it.id === galleryItemId ? { ...it, src: replaceUrl } : it,
+                      ),
+                      ...extra,
+                    ],
                   }
                 : b,
             ),

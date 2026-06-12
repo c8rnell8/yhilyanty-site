@@ -178,6 +178,27 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                 {o.notes}
               </p>
             )}
+
+            {o.images && o.images.length > 0 && (
+              <div className="flex gap-2 flex-wrap border-t border-[color:var(--border)] pt-3">
+                {o.images.map((f) => (
+                  <a
+                    key={f}
+                    href={`/api/admin/orders/image/${f}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Відкрити фото в повний розмір"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/admin/orders/image/${f}`}
+                      alt=""
+                      className="size-20 object-cover rounded-sm border border-[color:var(--border-strong)] hover:border-[color:var(--accent)]"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

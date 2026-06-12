@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import {
   readImageOverrides,
   saveImageFile,
@@ -19,7 +19,7 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
  *  Returns: { slots: [...], overrides: {key: url} }
  */
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("editor");
   if (guard) return guard;
   const overrides = await readImageOverrides();
   return NextResponse.json({ slots: IMAGE_SLOTS, overrides });
@@ -29,7 +29,7 @@ export async function GET() {
  *  Fields: key=<slot>, file=<image>
  */
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
 
   const ct = req.headers.get("content-type") || "";
@@ -42,7 +42,11 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const key = String(form.get("key") || "");
   const file = form.get("file");
-  if (!IMAGE_SLOTS.find((s) => s.key === key))
+  // Either a fixed site slot, or a block-scoped key from the page editor
+  // (pages.<pageId>.<blockId>[.<itemId>]).
+  const isSlot = Boolean(IMAGE_SLOTS.find((s) => s.key === key));
+  const isPageKey = /^pages\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)?$/.test(key);
+  if (!isSlot && !isPageKey)
     return NextResponse.json(
       { error: `Unknown image slot: ${key}` },
       { status: 400 }
@@ -66,13 +70,15 @@ export async function POST(req: Request) {
 
   const buf = Buffer.from(await file.arrayBuffer());
   const url = await saveImageFile(key, file.name || `image${ext}`, buf);
-  await setImageOverride(key, url);
+  // Slot overrides live in images.json; page-editor images are referenced
+  // from the page itself, so saving the file is enough.
+  if (isSlot) await setImageOverride(key, url);
   return NextResponse.json({ ok: true, key, url });
 }
 
 /** DELETE /api/admin/images?key=<slot>  — revert to default */
 export async function DELETE(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
   const url = new URL(req.url);
   const key = url.searchParams.get("key") || "";
