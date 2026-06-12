@@ -98,7 +98,14 @@ export function newSessionId(): string {
   return crypto.randomBytes(9).toString("hex");
 }
 
+/** Session ids only ever come from newSessionId. Anything else in the URL
+ *  (../.., absolute paths, %2f tricks) gets rejected before touching disk. */
+export function isValidSessionId(id: string): boolean {
+  return /^[0-9a-f]{18}$/.test(id);
+}
+
 export function sessionDir(id: string): string {
+  if (!isValidSessionId(id)) throw new Error(`Bad session id`);
   return path.join(SESSIONS_DIR, id);
 }
 
@@ -107,6 +114,7 @@ export async function ensureRoot(): Promise<void> {
 }
 
 export async function readSession(id: string): Promise<EditorSession | null> {
+  if (!isValidSessionId(id)) return null;
   try {
     const raw = await fs.readFile(
       path.join(sessionDir(id), "session.json"),
@@ -170,11 +178,11 @@ export async function probeMedia(
   });
 }
 
-/** Constant-time comparison of provided token vs env. Returns true if both
- *  match. If env token is unset, returns true (open mode for local testing). */
+/** Constant-time comparison of provided token vs env. No token configured
+ *  means the editor upload API is OFF - fail closed, not open. */
 export function checkBotToken(req: Request): boolean {
   const expected = process.env.YHILBOT_API_TOKEN;
-  if (!expected) return true;
+  if (!expected) return false;
   const got = req.headers.get("x-yhilbot-token") || "";
   if (got.length !== expected.length) return false;
   try {
