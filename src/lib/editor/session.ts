@@ -17,7 +17,7 @@ export const SUPPORTED_INPUTS = new Set([
   ".m4v",
 ]);
 
-export const SUPPORTED_OUTPUTS = ["mp4", "gif", "webp"] as const;
+export const SUPPORTED_OUTPUTS = ["mp4", "gif", "webp", "webm"] as const;
 export type OutputFormat = (typeof SUPPORTED_OUTPUTS)[number];
 
 export type CaptionOp = {
@@ -55,6 +55,19 @@ export type EditOps = {
   format: OutputFormat;
   fps?: number; // GIF only
   width?: number; // optional resize
+  // audio (mp4 only)
+  mute?: boolean;
+  volume?: number; // 0..3, 1 = as recorded
+  // look
+  brightness?: number; // -0.5 .. 0.5
+  contrast?: number; // 0.5 .. 2
+  saturation?: number; // 0 .. 3
+  rotate?: 0 | 90 | 180 | 270;
+  fadeIn?: number; // seconds
+  fadeOut?: number; // seconds
+  /** Cap the file size, e.g. 20 for Discord uploads or 100 on boosted
+   *  servers. mp4 only - bitrate is computed from the clip duration. */
+  targetSizeMB?: number;
 };
 
 export type SessionStatus =
@@ -84,6 +97,7 @@ export type EditorSession = {
     width: number;
     height: number;
     fps: number;
+    hasAudio?: boolean; // older sessions lack this - treat as no audio
   };
   ops: EditOps | null;
   output: {
@@ -136,17 +150,19 @@ export async function writeSession(s: EditorSession): Promise<void> {
   );
 }
 
-export async function probeMedia(
-  filePath: string
-): Promise<{ duration: number; width: number; height: number; fps: number }> {
+export async function probeMedia(filePath: string): Promise<{
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  hasAudio: boolean;
+}> {
   return new Promise((resolve, reject) => {
     const args = [
       "-v",
       "error",
-      "-select_streams",
-      "v:0",
       "-show_entries",
-      "stream=width,height,r_frame_rate:format=duration",
+      "stream=codec_type,width,height,r_frame_rate:format=duration",
       "-of",
       "json",
       filePath,
@@ -160,16 +176,20 @@ export async function probeMedia(
       if (code !== 0) return reject(new Error(`ffprobe failed: ${err}`));
       try {
         const j = JSON.parse(out);
-        const stream = j.streams?.[0] || {};
+        const streams: { codec_type?: string; width?: number; height?: number; r_frame_rate?: string }[] =
+          j.streams || [];
+        const video = streams.find((s) => s.codec_type === "video") || {};
+        const hasAudio = streams.some((s) => s.codec_type === "audio");
         const fmt = j.format || {};
-        const fpsStr = String(stream.r_frame_rate || "0/1");
+        const fpsStr = String(video.r_frame_rate || "0/1");
         const [num, den] = fpsStr.split("/").map(Number);
         const fps = den ? num / den : 0;
         resolve({
           duration: Number(fmt.duration) || 0,
-          width: Number(stream.width) || 0,
-          height: Number(stream.height) || 0,
+          width: Number(video.width) || 0,
+          height: Number(video.height) || 0,
           fps,
+          hasAudio,
         });
       } catch (e) {
         reject(e instanceof Error ? e : new Error(String(e)));

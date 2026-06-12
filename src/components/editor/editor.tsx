@@ -18,6 +18,8 @@ import {
   CheckCircleIcon,
   WarningCircleIcon,
   ArrowsHorizontalIcon,
+  SpeakerHighIcon,
+  SlidersHorizontalIcon,
 } from "@phosphor-icons/react";
 
 import { Link } from "@/i18n/navigation";
@@ -45,7 +47,7 @@ type Blur = {
 
 type Crop = { x: number; y: number; w: number; h: number };
 
-type Tool = "trim" | "text" | "blur" | "crop" | "speed" | "output";
+type Tool = "trim" | "text" | "blur" | "crop" | "speed" | "audio" | "look" | "output";
 
 type Status =
   | "uploaded"
@@ -90,6 +92,7 @@ export function Editor({
     width: number;
     height: number;
     fps: number;
+    hasAudio?: boolean;
   };
   origin: {
     discordUserId: string | null;
@@ -126,6 +129,16 @@ export function Editor({
   const [format, setFormat] = useState<"mp4" | "gif" | "webm">("mp4");
   const [fps, setFps] = useState(15);
   const [maxWidth, setMaxWidth] = useState<number>(0);
+
+  const [mute, setMute] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [brightness, setBrightness] = useState(0);
+  const [contrast, setContrast] = useState(1);
+  const [saturation, setSaturation] = useState(1);
+  const [rotate, setRotate] = useState<0 | 90 | 180 | 270>(0);
+  const [fadeIn, setFadeIn] = useState(0);
+  const [fadeOut, setFadeOut] = useState(0);
+  const [targetSizeMB, setTargetSizeMB] = useState(0);
 
   const [status, setStatus] = useState<Status>(initialStatus);
   const [outputExt, setOutputExt] = useState<string | null>(initialOutputExt);
@@ -412,6 +425,15 @@ export function Editor({
       fps: format === "gif" ? fps : undefined,
       width: maxWidth > 0 ? maxWidth : undefined,
       crop,
+      mute,
+      volume,
+      brightness,
+      contrast,
+      saturation,
+      rotate,
+      fadeIn,
+      fadeOut,
+      targetSizeMB: format === "mp4" && targetSizeMB > 0 ? targetSizeMB : undefined,
       captions: captions.map((c) => ({
         text: c.text,
         x: c.x,
@@ -471,6 +493,8 @@ export function Editor({
       { key: "blur", label: s.panelBlur, icon: <EyeSlashIcon className="size-5" weight="bold" /> },
       { key: "crop", label: s.panelCrop, icon: <CropIcon className="size-5" weight="bold" /> },
       { key: "speed", label: s.panelSpeed, icon: <SpeedometerIcon className="size-5" weight="bold" /> },
+      { key: "audio", label: s.panelAudio || "Звук", icon: <SpeakerHighIcon className="size-5" weight="bold" /> },
+      { key: "look", label: s.panelLook || "Вигляд", icon: <SlidersHorizontalIcon className="size-5" weight="bold" /> },
       { key: "output", label: s.panelOutput, icon: <ExportIcon className="size-5" weight="bold" /> },
     ],
     [s]
@@ -569,6 +593,10 @@ export function Editor({
                 className="absolute inset-0 w-full h-full object-contain"
                 playsInline
                 muted
+                style={{
+                  filter: `brightness(${1 + brightness}) contrast(${contrast}) saturate(${saturation})`,
+                  transform: rotate ? `rotate(${rotate}deg)` : undefined,
+                }}
               />
               {/* Crop overlay */}
               {crop && (
@@ -1042,6 +1070,118 @@ export function Editor({
                 </div>
               )}
 
+              {/* AUDIO */}
+              {tool === "audio" && (
+                <div className="flex flex-col gap-4">
+                  {!source.hasAudio && (
+                    <span className="text-xs text-[color:var(--muted-2)]">
+                      {s.noAudio || "У цьому відео немає звукової доріжки."}
+                    </span>
+                  )}
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={mute}
+                      onChange={(e) => setMute(e.target.checked)}
+                      className="accent-[color:var(--accent)]"
+                      disabled={!source.hasAudio}
+                    />
+                    {s.muteLabel || "Прибрати звук повністю"}
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="tactical-text text-[color:var(--muted-2)]">
+                        {s.volumeLabel || "Гучність"}
+                      </span>
+                      <span className="font-mono text-sm">{Math.round(volume * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={3}
+                      step={0.05}
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      disabled={mute || !source.hasAudio}
+                      className="w-full accent-[color:var(--accent)]"
+                    />
+                  </div>
+                  <span className="tactical-text text-[10px] text-[color:var(--muted)]">
+                    {s.audioHint || "Звук зберігається тільки у форматі MP4/WEBM."}
+                  </span>
+                </div>
+              )}
+
+              {/* LOOK */}
+              {tool === "look" && (
+                <div className="flex flex-col gap-4">
+                  {([
+                    [s.brightnessLabel || "Яскравість", brightness, setBrightness, -0.5, 0.5, 0.01],
+                    [s.contrastLabel || "Контраст", contrast, setContrast, 0.5, 2, 0.01],
+                    [s.saturationLabel || "Насиченість", saturation, setSaturation, 0, 3, 0.05],
+                  ] as [string, number, (n: number) => void, number, number, number][]).map(
+                    ([label, val, set, min, max, step]) => (
+                      <div key={label} className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="tactical-text text-[color:var(--muted-2)]">{label}</span>
+                          <span className="font-mono text-sm">{val.toFixed(2)}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={min}
+                          max={max}
+                          step={step}
+                          value={val}
+                          onChange={(e) => set(Number(e.target.value))}
+                          className="w-full accent-[color:var(--accent)]"
+                        />
+                      </div>
+                    )
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <span className="tactical-text text-[color:var(--muted-2)]">
+                      {s.rotateLabel || "Поворот"}
+                    </span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {([0, 90, 180, 270] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRotate(r)}
+                          className={`h-9 rounded-sm border tactical-text ${
+                            rotate === r
+                              ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                              : "border-[color:var(--border-strong)] text-[color:var(--muted-2)]"
+                          }`}
+                        >
+                          {r}°
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <NumberField
+                      label={s.fadeInLabel || "Поява (с)"}
+                      value={fadeIn}
+                      onChange={setFadeIn}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      suffix="s"
+                    />
+                    <NumberField
+                      label={s.fadeOutLabel || "Згасання (с)"}
+                      value={fadeOut}
+                      onChange={setFadeOut}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      suffix="s"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* OUTPUT */}
               {tool === "output" && (
                 <div className="flex flex-col gap-3">
@@ -1087,6 +1227,37 @@ export function Editor({
                   <span className="tactical-text text-[10px] text-[color:var(--muted)]">
                     0 = {s.maxWidth.toLowerCase()} = source
                   </span>
+                  {format === "mp4" && (
+                    <div className="flex flex-col gap-2">
+                      <span className="tactical-text text-[color:var(--muted-2)]">
+                        {s.sizeLimitLabel || "Ліміт розміру файлу"}
+                      </span>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          [0, s.noLimit || "Без ліміту"],
+                          [8, "8 МБ"],
+                          [20, "20 МБ"],
+                          [100, "100 МБ"],
+                        ] as [number, string][]).map(([mb, label]) => (
+                          <button
+                            key={mb}
+                            type="button"
+                            onClick={() => setTargetSizeMB(mb)}
+                            className={`h-10 rounded-sm border tactical-text text-[10px] ${
+                              targetSizeMB === mb
+                                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)]"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="tactical-text text-[10px] text-[color:var(--muted)]">
+                        {s.sizeLimitHint || "8 МБ — Discord без бустів, 20 МБ — бот, 100 МБ — сервер з бустами."}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -66,7 +66,13 @@ export async function POST(req: Request) {
   const buf = Buffer.from(await file.arrayBuffer());
   await fs.writeFile(sourcePath, buf);
 
-  let probe: { duration: number; width: number; height: number; fps: number };
+  let probe: {
+    duration: number;
+    width: number;
+    height: number;
+    fps: number;
+    hasAudio: boolean;
+  };
   try {
     probe = await probeMedia(sourcePath);
   } catch (e) {
@@ -98,6 +104,7 @@ export async function POST(req: Request) {
       width: probe.width,
       height: probe.height,
       fps: probe.fps,
+      hasAudio: probe.hasAudio,
     },
     ops: null,
     output: null,

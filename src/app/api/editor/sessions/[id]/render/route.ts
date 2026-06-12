@@ -7,6 +7,7 @@ import {
   writeSession,
 } from "@/lib/editor/session";
 import { renderSession } from "@/lib/editor/render";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +76,18 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
     input.width && Number(input.width) > 0
       ? Math.max(120, Math.min(1920, Math.round(Number(input.width))))
       : undefined;
+
+  const num = (v: unknown, lo: number, hi: number, dflt: number): number => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return dflt;
+    return Math.max(lo, Math.min(hi, n));
+  };
+  const rotate = ([90, 180, 270] as const).find((r) => r === Number(input.rotate)) || 0;
+  const targetSizeMB =
+    (fmt === "mp4" || fmt === "webm") && Number(input.targetSizeMB) > 0
+      ? num(input.targetSizeMB, 1, 100, 20)
+      : undefined;
+
   return {
     trimIn,
     trimOut,
@@ -85,6 +98,15 @@ function sanitizeOps(input: Incoming, sourceDuration: number): EditOps {
     format: fmt,
     fps,
     width,
+    mute: input.mute === true,
+    volume: num(input.volume, 0, 3, 1),
+    brightness: num(input.brightness, -0.5, 0.5, 0),
+    contrast: num(input.contrast, 0.5, 2, 1),
+    saturation: num(input.saturation, 0, 3, 1),
+    rotate,
+    fadeIn: num(input.fadeIn, 0, 5, 0),
+    fadeOut: num(input.fadeOut, 0, 5, 0),
+    targetSizeMB,
   };
 }
 
@@ -92,6 +114,11 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  // ffmpeg is the most expensive thing this server runs - cap how often a
+  // single client can kick it off.
+  const limited = rateLimit(req, "render", 10, 600);
+  if (limited) return limited;
+
   const { id } = await ctx.params;
   const s = await readSession(id);
   if (!s) return NextResponse.json({ error: "Not found" }, { status: 404 });

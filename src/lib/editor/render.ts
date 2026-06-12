@@ -225,11 +225,24 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
   // For GIF we use a separate two-pipe approach (filter_complex split palette).
   // For mp4/webm we use single filter_complex with effects.
   try {
-    const outExt = ops.format === "gif" ? ".gif" : ops.format === "webp" ? ".webp" : ".mp4";
+    const outExt =
+      ops.format === "gif"
+        ? ".gif"
+        : ops.format === "webp"
+          ? ".webp"
+          : ops.format === "webm"
+            ? ".webm"
+            : ".mp4";
     const outputPath = path.join(dir, `output${outExt}`);
 
     // Build a clean unified pipeline using filter_complex only (no -vf).
-    const filter = buildUnifiedFilter(ops, s.source);
+    const keepAudio =
+      (ops.format === "mp4" || ops.format === "webm") &&
+      s.source.hasAudio === true &&
+      ops.mute !== true;
+    let filter = buildUnifiedFilter(ops, s.source);
+    if (keepAudio) filter += ";" + buildAudioFilter(ops);
+
     const args: string[] = [
       "-y",
       "-hide_banner",
@@ -242,6 +255,14 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
       "-map",
       "[out]",
     ];
+    if (keepAudio)
+      args.push(
+        "-map",
+        "[aout]",
+        ...(ops.format === "webm"
+          ? ["-c:a", "libopus", "-b:a", "96k"]
+          : ["-c:a", "aac", "-b:a", "128k"])
+      );
 
     if (ops.format === "mp4") {
       args.push(
@@ -249,16 +270,43 @@ export async function renderSession(s: EditorSession, ops: EditOps): Promise<voi
         "libx264",
         "-preset",
         "medium",
-        "-crf",
-        "20",
         "-pix_fmt",
         "yuv420p",
         "-movflags",
-        "+faststart",
-        "-an"
+        "+faststart"
       );
+      const clipDur = Math.max(
+        0.1,
+        (Math.max(ops.trimIn + 0.1, ops.trimOut) - Math.max(0, ops.trimIn)) /
+          Math.max(0.1, Math.min(8, ops.speed || 1))
+      );
+      const target = ops.targetSizeMB;
+      if (target && target >= 1 && target <= 100) {
+        // Fit under the requested cap: spend the byte budget minus audio on
+        // video, with a margin for container overhead.
+        const totalBits = target * 8 * 1024 * 1024 * 0.93;
+        const audioBits = keepAudio ? 128_000 * clipDur : 0;
+        const vBitrate = Math.max(
+          150_000,
+          Math.floor((totalBits - audioBits) / clipDur)
+        );
+        args.push(
+          "-b:v",
+          String(vBitrate),
+          "-maxrate",
+          String(Math.floor(vBitrate * 1.4)),
+          "-bufsize",
+          String(vBitrate * 2)
+        );
+      } else {
+        args.push("-crf", "20");
+      }
+      if (!keepAudio) args.push("-an");
     } else if (ops.format === "webp") {
       args.push("-c:v", "libwebp", "-loop", "0", "-an");
+    } else if (ops.format === "webm") {
+      args.push("-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-row-mt", "1");
+      if (!keepAudio) args.push("-an");
     }
     args.push(outputPath);
 
@@ -331,6 +379,35 @@ function buildUnifiedFilter(
     outH = nh;
   }
 
+  // Step 3b: rotate (after scale so blur/caption coords use the final frame)
+  if (ops.rotate === 90) {
+    chain += `,transpose=1`;
+    [outW, outH] = [outH, outW];
+  } else if (ops.rotate === 180) {
+    chain += `,hflip,vflip`;
+  } else if (ops.rotate === 270) {
+    chain += `,transpose=2`;
+    [outW, outH] = [outH, outW];
+  }
+
+  // Step 3c: color correction - only when it actually changes something
+  const eq: string[] = [];
+  if (typeof ops.brightness === "number" && ops.brightness !== 0)
+    eq.push(`brightness=${Math.max(-0.5, Math.min(0.5, ops.brightness)).toFixed(2)}`);
+  if (typeof ops.contrast === "number" && ops.contrast !== 1)
+    eq.push(`contrast=${Math.max(0.5, Math.min(2, ops.contrast)).toFixed(2)}`);
+  if (typeof ops.saturation === "number" && ops.saturation !== 1)
+    eq.push(`saturation=${Math.max(0, Math.min(3, ops.saturation)).toFixed(2)}`);
+  if (eq.length) chain += `,eq=${eq.join(":")}`;
+
+  // Step 3d: fades (timed against the output clip, after speed change)
+  const clipDur = Math.max(0.1, (trimOut - trimIn) / speed);
+  const fadeIn = Math.max(0, Math.min(5, ops.fadeIn || 0));
+  const fadeOut = Math.max(0, Math.min(5, ops.fadeOut || 0));
+  if (fadeIn > 0) chain += `,fade=t=in:st=0:d=${fadeIn.toFixed(2)}`;
+  if (fadeOut > 0)
+    chain += `,fade=t=out:st=${Math.max(0, clipDur - fadeOut).toFixed(2)}:d=${fadeOut.toFixed(2)}`;
+
   chain += `,format=yuv420p[base]`;
   const parts: string[] = [chain];
 
@@ -386,6 +463,35 @@ function buildUnifiedFilter(
   }
 
   return parts.join(";");
+}
+
+/** Audio pipeline mirroring the video edits: trim, speed (atempo stages,
+ *  each stage stays within its 0.5-2.0 range), volume, fades. */
+function buildAudioFilter(ops: EditOps): string {
+  const trimIn = Math.max(0, ops.trimIn);
+  const trimOut = Math.max(trimIn + 0.1, ops.trimOut);
+  const speed = Math.max(0.1, Math.min(8, ops.speed || 1));
+
+  let chain = `[0:a]atrim=start=${trimIn.toFixed(3)}:end=${trimOut.toFixed(3)},asetpts=PTS-STARTPTS`;
+
+  let remaining = speed;
+  while (Math.abs(remaining - 1) > 0.001) {
+    const stage = Math.max(0.5, Math.min(2, remaining));
+    chain += `,atempo=${stage.toFixed(3)}`;
+    remaining /= stage;
+  }
+
+  const volume = typeof ops.volume === "number" ? Math.max(0, Math.min(3, ops.volume)) : 1;
+  if (volume !== 1) chain += `,volume=${volume.toFixed(2)}`;
+
+  const clipDur = Math.max(0.1, (trimOut - trimIn) / speed);
+  const fadeIn = Math.max(0, Math.min(5, ops.fadeIn || 0));
+  const fadeOut = Math.max(0, Math.min(5, ops.fadeOut || 0));
+  if (fadeIn > 0) chain += `,afade=t=in:st=0:d=${fadeIn.toFixed(2)}`;
+  if (fadeOut > 0)
+    chain += `,afade=t=out:st=${Math.max(0, clipDur - fadeOut).toFixed(2)}:d=${fadeOut.toFixed(2)}`;
+
+  return `${chain}[aout]`;
 }
 
 // keep ffmpegArgs export for potential reuse / testing
