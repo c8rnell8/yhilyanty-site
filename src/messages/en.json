@@ -367,6 +367,10 @@
       "team": {
         "title": "Team",
         "body": "Hand out positions: admins and editors can help run the site."
+      },
+      "system": {
+        "title": "System",
+        "body": "Full site backup, restore and the team action log."
       }
     }
   },

@@ -16,6 +16,7 @@ import {
   RobotIcon,
   PackageIcon,
   UsersIcon,
+  GearSixIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -125,7 +126,16 @@ export default async function AdminPage({
   ];
 
   const cards: {
-    key: "content" | "images" | "layout" | "pages" | "nav" | "ai" | "orders" | "team";
+    key:
+      | "content"
+      | "images"
+      | "layout"
+      | "pages"
+      | "nav"
+      | "ai"
+      | "orders"
+      | "team"
+      | "system";
     href: string;
     icon: typeof TextTIcon;
     min: Role;
@@ -138,6 +148,7 @@ export default async function AdminPage({
     { key: "ai", href: "/admin/ai", icon: RobotIcon, min: "editor" },
     { key: "orders", href: "/admin/orders", icon: PackageIcon, min: "admin" },
     { key: "team", href: "/admin/team", icon: UsersIcon, min: "owner" },
+    { key: "system", href: "/admin/system", icon: GearSixIcon, min: "owner" },
   ];
   const visibleCards = cards.filter((c) => roleAtLeast(role, c.min));
 

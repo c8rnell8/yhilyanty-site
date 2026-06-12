@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 
+import { auditLog } from "@/lib/audit";
 import { getSession, isOwner } from "@/lib/auth";
 import { getRole, roleAtLeast, type Role } from "@/lib/roles";
+
+/** Every authorized write is journaled: method + path + who. Route handlers
+ *  add finer detail where it matters (ai.set_text etc). */
+function logWrite(
+  s: { id: string; username?: string; globalName?: string | null } | null,
+  req: Request,
+): void {
+  try {
+    const url = new URL(req.url);
+    void auditLog(s, `${req.method} ${url.pathname}`);
+  } catch {
+    // never let logging break the request
+  }
+}
 
 /** Block cross-site form/fetch posts: if the browser sent an Origin header,
  *  it has to match the host we're serving. Requests without Origin (the bot,
@@ -39,6 +54,7 @@ export async function requireOwner(req?: Request): Promise<NextResponse | null> 
   const s = await getSession();
   if (!isOwner(s))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (req) logWrite(s, req);
   return null;
 }
 
@@ -56,5 +72,6 @@ export async function requireRole(
   const role = await getRole(s);
   if (!roleAtLeast(role, min))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (req) logWrite(s, req);
   return null;
 }

@@ -319,6 +319,10 @@ export async function writeMerchOrder(order: MerchOrder): Promise<MerchOrder> {
   });
 }
 
+export async function writeOrdersStore(o: OrdersStore): Promise<void> {
+  await withMutex(ORDERS_FILE, () => writeJsonAtomic(ORDERS_FILE, o));
+}
+
 export async function setOrderStatus(
   id: string,
   status: MerchOrder["status"]
@@ -349,6 +353,10 @@ export type TeamStore = { members: TeamMember[] };
 
 export async function readTeamStore(): Promise<TeamStore> {
   return readJson<TeamStore>(TEAM_FILE, { members: [] });
+}
+
+export async function writeTeamStore(o: TeamStore): Promise<void> {
+  await withMutex(TEAM_FILE, () => writeJsonAtomic(TEAM_FILE, o));
 }
 
 export async function upsertTeamMember(m: TeamMember): Promise<TeamStore> {
