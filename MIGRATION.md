@@ -1,6 +1,6 @@
-# Migration runbook — moving yhilyanty-site to a different VPS
+# Migrating to a different VPS
 
-> Use this when the current host (`45.12.62.204` / mhost.ee) needs to be replaced. Should take ≈ 30 minutes assuming you have shell access to both old and new boxes.
+For when the current host (`45.12.62.204` / mhost.ee) needs replacing. About half an hour if you have shell access to both the old and new boxes.
 
 ## What you'll need
 

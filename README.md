@@ -4,15 +4,15 @@ Next.js 16 (App Router) trilingual site (UA / RU / EN) for the **Ухилянт�
 
 Pairs with the Discord bot [c8rnell8/yhilbot](https://github.com/c8rnell8/yhilbot) — the bot uploads videos to this site via `/api/editor/sessions`, user edits in the browser, bot pulls the rendered GIF/MP4 back.
 
-## Features
+## What's here
 
-- **Landing** with hero, games (Squad / Arma Reforger), gallery, codex, bot promo, CTA
-- **Roster** (`/roster`) — operators table
-- **Join** (`/join`) — Discord OAuth login + application form
-- **Merch** (`/merch`, `/merch/[item]`) — product detail + order form with optional webhook
-- **Bot** (`/bot`) — bot commands + install button
-- **Admin CMS** (`/admin/*`, owner-only) — edit texts, images, landing section order, dynamic pages, navbar/footer
-- **Web editor** (`/editor/[id]`) — trim + text overlay + blur + crop + speed + MP4/GIF/WebM export via ffmpeg
+- landing page — hero, games (Squad / Arma Reforger), gallery, codex, bot promo, CTA
+- roster (`/roster`), the operators table
+- join (`/join`) — Discord OAuth login and the application form
+- merch (`/merch`, `/merch/[item]`) — product pages and an order form with an optional webhook
+- bot (`/bot`) — command list and an install button
+- admin CMS (`/admin/*`, owner only) for editing texts, images, landing section order, dynamic pages and the nav/footer
+- the web editor (`/editor/[id]`) — trim, text overlay, blur, crop, speed, export to MP4/GIF/WebM via ffmpeg
 
 ## Stack
 

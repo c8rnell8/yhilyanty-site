@@ -1,103 +1,64 @@
-# yhilyanty-site — Handoff Document
+# Ops notes
 
-> **Purpose**: this document is for any future operator (AI or human) who needs to continue, debug, or extend this project. It assumes zero prior context — read top to bottom.
+Notes on how this thing is deployed and run, so I don't have to remember it all. If someone else ends up maintaining it, start here.
 
-## 1. What this project is
+## What it is
 
-A trilingual (Ukrainian / Russian / English) website for the **Ухилянти** clan (Squad / Arma Reforger), with an integrated admin CMS and a video-editor that pairs with a Discord bot. The clan name varies by locale: UA "Ухилянти", RU "Ухилянты", EN "Yhilyanty".
+A trilingual (UA / RU / EN) site for the Ухилянти clan (Squad / Arma Reforger) with an admin CMS and a browser video editor that talks to a Discord bot. Clan name changes per locale: UA "Ухилянти", RU "Ухилянты", EN "Yhilyanty".
 
-There are **two repositories** that work together:
+Two repos work together:
 
-- [`c8rnell8/yhilyanty-site`](https://github.com/c8rnell8/yhilyanty-site) — this repo. Next.js 16 (App Router) frontend + admin CMS + video editor + REST API. Deployed at `https://yhil.duckdns.org`.
-- [`c8rnell8/yhilbot`](https://github.com/c8rnell8/yhilbot) — Python Discord bot (discord.py). Provides `/gif`, `/caption`, `/edit`, `/webedit`, `/stats`, `/help`. The `/webedit` command uploads videos to this site so the user can edit them in the browser, then pulls the rendered output back to Discord.
+- [`c8rnell8/yhilyanty-site`](https://github.com/c8rnell8/yhilyanty-site) — this one. Next.js 16 (App Router) + admin CMS + video editor + REST API. Lives at https://yhil.duckdns.org.
+- [`c8rnell8/yhilbot`](https://github.com/c8rnell8/yhilbot) — the Python (discord.py) bot. Commands: `/gif`, `/caption`, `/edit`, `/webedit`, `/stats`, `/help`. `/webedit` uploads a video to the site, you edit it in the browser, then it pulls the render back into Discord.
 
-## 2. Tech stack
+## Stack
 
-| Component | Stack |
-|-----------|-------|
-| Frontend | Next.js 16.2.4 App Router, React 19, TypeScript, Tailwind CSS, Phosphor Icons, Framer Motion |
-| i18n | `next-intl` v4 — locales `ua`, `ru`, `en` |
-| Auth | Discord OAuth2 (HTTP-only session cookie). Owner-only admin gating via `OWNER_DISCORD_ID` env var. |
-| CMS storage | JSON files in `.cms-overrides/` (text overrides, image overrides, layout, dynamic pages, navbar/footer) |
-| Video editor | ffmpeg, called from `src/app/api/editor/sessions/[id]/render/route.ts`. Sessions stored in `.editor-sessions/<id>/`. |
-| Bot | Python 3.11, discord.py 2.7, aiohttp, ffmpeg |
+- Frontend: Next.js 16.2.4 App Router, React 19, TypeScript, Tailwind, Phosphor Icons, Framer Motion
+- i18n: `next-intl` v4, locales `ua` / `ru` / `en`
+- Auth: Discord OAuth2 with an HTTP-only session cookie; admin is gated owner-only via `OWNER_DISCORD_ID`
+- CMS storage: plain JSON in `.cms-overrides/` (text/image/layout overrides, dynamic pages, nav/footer)
+- Editor: ffmpeg, driven from `src/app/api/editor/sessions/[id]/render/route.ts`, sessions under `.editor-sessions/<id>/`
+- Bot: Python 3.11, discord.py 2.7, aiohttp, ffmpeg
 
-## 3. Production environment
+## The server
 
-| Item | Value |
-|------|-------|
-| Server IP | `45.12.62.204` |
-| Hostname | `cornflower-iron.mhost.ee` (provider: mhost.ee) |
-| OS | Debian 12 bookworm, 1 CPU, 2 GB RAM, 24 GB disk |
-| Domain | `yhil.duckdns.org` (free DuckDNS subdomain) |
-| SSL | Let's Encrypt (auto-renew via certbot.timer) |
-| Site service | `systemd: yhilyanty-site.service` → `npm run start -p 3000` (proxied behind nginx) |
-| Bot service | `systemd: yhilbot.service` → Python venv at `/opt/yhilbot/.venv/bin/python bot.py` |
-| Site path | `/opt/yhilyanty-site/` |
-| Bot path | `/opt/yhilbot/` |
-| nginx config | `/etc/nginx/sites-available/yhilyanty` + `/etc/nginx/conf.d/ratelimit.conf` |
-| fail2ban jails | `sshd`, `nginx-auth-abuse`, `nginx-limit-req`, `nginx-bad-bots` (configs in `/etc/fail2ban/jail.d/custom.conf`) |
-| CrowdSec | iptables firewall bouncer using community IP-reputation feed |
-| Auto-updates | `unattended-upgrades` for security patches |
-| ufw | only ports 22, 80, 443 open |
+- IP `45.12.62.204`, host `cornflower-iron.mhost.ee` (mhost.ee)
+- Debian 12, 1 CPU / 2 GB RAM / 24 GB disk
+- Domain `yhil.duckdns.org` (free DuckDNS subdomain), TLS via Let's Encrypt (certbot.timer auto-renews)
+- Site runs as `yhilyanty-site.service` → `npm run start -p 3000`, behind nginx, code at `/opt/yhilyanty-site/`
+- Bot runs as `yhilbot.service` → `/opt/yhilbot/.venv/bin/python bot.py`, code at `/opt/yhilbot/`
+- nginx config in `/etc/nginx/sites-available/yhilyanty` + `/etc/nginx/conf.d/ratelimit.conf`
+- fail2ban jails: `sshd`, `nginx-auth-abuse`, `nginx-limit-req`, `nginx-bad-bots` (in `/etc/fail2ban/jail.d/custom.conf`)
+- CrowdSec iptables bouncer on top, `unattended-upgrades` for security patches, ufw only allows 22/80/443
 
-## 4. Credentials & where they live
+## Credentials
 
-**Server access**:
-- SSH key (preferred): `/home/ubuntu/yhil-server-key` on the build host (this Devin VM). Public key in `/root/.ssh/authorized_keys` on the server.
-- Root password (fallback): rotated regularly. Last known stored only in user's password manager — NOT committed anywhere.
+Nothing secret is committed. Where everything lives:
 
-**Discord OAuth (login)**:
-- Application: https://discord.com/developers/applications/1497897295264612372
-- `DISCORD_CLIENT_ID = 1497897295264612372`
-- `DISCORD_CLIENT_SECRET` — set on server in `/opt/yhilyanty-site/.env.production` (chmod 600)
-- Redirect URI registered: `https://yhil.duckdns.org/api/auth/callback`
+- SSH: key at `/home/ubuntu/yhil-server-key` on the deploy host, public key in the server's `/root/.ssh/authorized_keys`. Root password is the fallback and only kept in the password manager.
+- Discord OAuth + bot share one app: https://discord.com/developers/applications/1497897295264612372 (`DISCORD_CLIENT_ID = 1497897295264612372`). Callback `https://yhil.duckdns.org/api/auth/callback`. `DISCORD_CLIENT_SECRET` is in `/opt/yhilyanty-site/.env.production` (chmod 600), `DISCORD_TOKEN` in `/opt/yhilbot/yhil.env` (chmod 600), `OWNER_ID = 546710148144562176`.
+- Bot ↔ site shared secret: `YHILBOT_API_TOKEN` (a `yhil_`-prefixed hex string from `openssl rand -hex 32`). Site reads it as `YHILBOT_API_TOKEN`, bot as `WEB_EDITOR_TOKEN` — they must match.
+- DuckDNS token is only in the DuckDNS account.
+- There's a Cloudflare zone for `yhil.duckdns.org` but it's stuck `pending` — DuckDNS won't let you change nameservers, so the CF proxy is off. The server-side hardening (fail2ban + CrowdSec + nginx rate limits) covers for it. To actually use CF, buy a real domain and point it at the same CF account.
 
-**Discord bot**:
-- Same application as OAuth (1497897295264612372)
-- `DISCORD_TOKEN` — set on server in `/opt/yhilbot/yhil.env` (chmod 600)
-- `OWNER_ID = 546710148144562176`
+## Status (2026-04-30)
 
-**Bot ↔ site auth**:
-- Shared secret `YHILBOT_API_TOKEN` (32-byte hex prefixed `yhil_`). Generated during initial server build by `openssl rand -hex 32`.
-- On site: `/opt/yhilyanty-site/.env.production` → `YHILBOT_API_TOKEN=yhil_...`
-- On bot: `/opt/yhilbot/yhil.env` → `WEB_EDITOR_TOKEN=yhil_...` (must match)
+Site, HTTPS, the hardening stack, OAuth login, the admin CMS, and the video editor are all live. The bot is deployed and configured at `/opt/yhilbot/` but the service is **not started** — leave it that way until the owner explicitly says to start it ("ботом вообще не заходи на дискорд сервера без моей команды"). Still pending: the owner needs to delete the old bot app (client `1499028032952733886`) in the Developer Portal, and Cloudflare's proxy stays off until there's a real domain.
 
-**DuckDNS**:
-- Domain: `yhil.duckdns.org` → `45.12.62.204`
-- Token: stored only in user's account at https://www.duckdns.org/
+## Starting the bot
 
-**Cloudflare**:
-- User has a CF account with the zone `yhil.duckdns.org` added — but it sits as `pending` because DuckDNS doesn't allow changing NS servers, so CF proxy is **not active**. Server-side hardening (fail2ban + CrowdSec + nginx rate limits) compensates. To enable CF proxy, register a real domain (~$1-10/year on Namecheap/Porkbun) and add it to the same CF account.
-
-## 5. Current deployment status (as of 2026-04-30)
-
-| Item | Status |
-|------|--------|
-| Site (Next.js) | ✅ live at https://yhil.duckdns.org/ua |
-| HTTPS / Let's Encrypt | ✅ deployed, auto-renewed |
-| Security hardening | ✅ fail2ban, CrowdSec, ufw, unattended-upgrades, security headers |
-| Discord OAuth login | ✅ ready (user must add redirect URI in dev portal) |
-| Admin CMS (texts, images, layout, pages, nav) | ✅ deployed, accessible by owner only |
-| Video editor (sessions, render) | ✅ deployed |
-| Bot (discord.py) | ⏸ deployed to `/opt/yhilbot/` and configured but **service NOT started** until user explicitly tells us to. The user's exact instruction was "ботом вообще не заходи на дискорд сервера без моей команды". |
-| Old bot (Client ID `1499028032952733886`) | ⏳ user to delete in Developer Portal |
-| Cloudflare DDoS proxy | ❌ not active (DuckDNS ↔ CF NS-delegation incompatibility) |
-
-## 6. Turning the bot on
-
-When the user says "запускай бота" (or similar):
+Once the owner says go:
 
 ```bash
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 \
   'systemctl enable --now yhilbot.service && journalctl -u yhilbot.service -n 30 --no-pager'
 ```
 
-Look for `🟢 Готов: <name>#xxxx | GPU=нет | GUILD_IDS=global` in the logs. If you see auth errors → token in `yhil.env` is stale, regenerate via Developer Portal → Bot → Reset Token.
+Logs should show the ready line. Auth errors mean the token in `yhil.env` is stale — reset it in the Developer Portal under Bot → Reset Token.
 
-## 7. Common operations
+## Deploying updates
 
-**Update site after a new commit** (zero-downtime-ish — single restart):
+Site:
 
 ```bash
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'bash -s' <<'EOF'
@@ -109,7 +70,7 @@ systemctl restart yhilyanty-site
 EOF
 ```
 
-**Update bot after a new commit**:
+Bot:
 
 ```bash
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'bash -s' <<'EOF'
@@ -120,14 +81,16 @@ systemctl restart yhilbot
 EOF
 ```
 
-> **NB**: the server currently has `/opt/yhilyanty-site` and `/opt/yhilbot` as plain directories (created from tarballs during initial deploy). To enable `git pull` workflow, run on the server once:
-> ```bash
-> cd /opt/yhilyanty-site && git init && git remote add origin https://github.com/c8rnell8/yhilyanty-site.git && git fetch && git reset --hard origin/main
-> cd /opt/yhilbot && git init && git remote add origin https://github.com/c8rnell8/yhilbot.git && git fetch && git reset --hard origin/main
-> ```
-> (Skip if you'd rather rebuild + scp tarballs each time.)
+`/opt/yhilyanty-site` and `/opt/yhilbot` were originally laid down from tarballs, so `git pull` only works after wiring up the remote once:
 
-**Inspect logs**:
+```bash
+cd /opt/yhilyanty-site && git init && git remote add origin https://github.com/c8rnell8/yhilyanty-site.git && git fetch && git reset --hard origin/main
+cd /opt/yhilbot && git init && git remote add origin https://github.com/c8rnell8/yhilbot.git && git fetch && git reset --hard origin/main
+```
+
+## Useful commands
+
+Logs:
 
 ```bash
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'journalctl -u yhilyanty-site -n 50 --no-pager'
@@ -135,13 +98,13 @@ ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'journalctl -u yhilbot -n 
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'tail -n 100 /var/log/nginx/access.log'
 ```
 
-**Check banned IPs**:
+Banned IPs:
 
 ```bash
 ssh -i /home/ubuntu/yhil-server-key root@45.12.62.204 'fail2ban-client status sshd; fail2ban-client status nginx-auth-abuse; cscli decisions list'
 ```
 
-**Whitelist your own IP** (if you get accidentally banned, like Devin did during initial deploy):
+If you ban yourself (easy to do while tightening SSH/fail2ban/firewall — whitelist first next time):
 
 ```bash
 MY_IP=$(curl -sS https://api.ipify.org)
@@ -155,70 +118,51 @@ cscli decisions delete --ip $MY_IP
 "
 ```
 
-**Rotate the YHILBOT_API_TOKEN**: edit it on both sides (`/opt/yhilyanty-site/.env.production` and `/opt/yhilbot/yhil.env`) and restart both services. Both files have `chmod 600`.
+Rotating `YHILBOT_API_TOKEN`: change it on both sides (`/opt/yhilyanty-site/.env.production` and `/opt/yhilbot/yhil.env`, both chmod 600) and restart both services.
 
-## 8. Repository layout
+## Layout
 
 ```
 yhilyanty-site/
-├── README.md            ← user-facing intro
-├── HANDOFF.md           ← this file
-├── MIGRATION.md         ← how to move to a different VPS
-├── .env.example         ← env vars template
-├── deploy/              ← nginx, systemd, fail2ban configs
-├── public/              ← static assets (logos, photos)
+├── README.md            intro
+├── HANDOFF.md           this file
+├── MIGRATION.md         moving to another VPS
+├── .env.example         env template
+├── deploy/              nginx, systemd, fail2ban configs
+├── public/              static assets
 └── src/
     ├── app/
     │   ├── [locale]/
-    │   │   ├── page.tsx           ← landing
-    │   │   ├── join/, roster/, merch/, bot/    ← top-level pages
-    │   │   ├── admin/             ← CMS (owner-only, server-gated)
-    │   │   │   ├── content/       ← edit translations
-    │   │   │   ├── images/        ← edit image slots
-    │   │   │   ├── layout-editor/ ← reorder landing sections
-    │   │   │   ├── pages/         ← create dynamic /p/<slug> pages
-    │   │   │   └── nav/           ← edit navbar + footer
-    │   │   ├── editor/[id]/       ← video editor UI
-    │   │   └── p/[slug]/          ← rendered dynamic pages
+    │   │   ├── page.tsx           landing
+    │   │   ├── join/ roster/ merch/ bot/
+    │   │   ├── admin/             owner-only CMS, server-gated
+    │   │   │   ├── content/       translations
+    │   │   │   ├── images/        image slots
+    │   │   │   ├── layout-editor/ reorder landing sections
+    │   │   │   ├── pages/         dynamic /p/<slug> pages
+    │   │   │   └── nav/           navbar + footer
+    │   │   ├── editor/[id]/       video editor UI
+    │   │   └── p/[slug]/          rendered dynamic pages
     │   └── api/
-    │       ├── auth/              ← Discord OAuth (login, callback, logout, me)
-    │       ├── admin/             ← CMS write endpoints (owner-only)
-    │       ├── cms/images/[file]/ ← CMS-uploaded image serving
-    │       ├── editor/sessions/   ← video editor sessions API
-    │       └── merch/order/       ← merch order submission
+    │       ├── auth/              Discord OAuth
+    │       ├── admin/             CMS writes, owner-only
+    │       ├── cms/images/[file]/ CMS image serving
+    │       ├── editor/sessions/   editor sessions API
+    │       └── merch/order/       merch orders
     ├── components/
-    ├── i18n/                      ← next-intl config
-    ├── messages/                  ← ua.json, ru.json, en.json
-    ├── lib/                       ← cms helpers, auth, editor session model
-    └── middleware.ts              ← next-intl + auth middleware
+    ├── i18n/
+    ├── messages/                  ua.json, ru.json, en.json
+    ├── lib/                       cms helpers, auth, editor session model
+    └── middleware.ts              next-intl + auth
 ```
 
-The `.cms-overrides/` directory at the project root is **NOT in git** (gitignored). It's the persistent CMS data for the running deployment. Back it up periodically — see MIGRATION.md.
+`.cms-overrides/` at the project root is gitignored — it's the live CMS data on the server. Back it up now and then (see MIGRATION.md).
 
-## 9. Things that aren't done
+## Not done yet
 
-- [ ] Cloudflare proxy (requires real domain to bypass DuckDNS NS-delegation issue)
-- [ ] CSRF tokens on admin POST forms (rate-limits + same-site cookies + owner gating provide reasonable defense, but CSRF would be belt-and-suspenders)
-- [ ] hCaptcha/Turnstile on `/api/merch/order` (currently just rate-limited)
-- [ ] Backups of `.cms-overrides/` — should be on a cron job to S3 or similar
-- [ ] CI/CD pipeline (currently deploys are manual: scp tarball or git pull)
-- [ ] Monitoring/uptime alerts
-
-## 10. How a different AI agent should pick this up
-
-1. Read this file end-to-end.
-2. `git clone` both repos, examine `deploy/DEPLOY.md` and `MIGRATION.md` for fuller infra detail.
-3. Ask the user for the current root password if the SSH key in this Devin VM is gone.
-4. Verify the site is up: `curl -I https://yhil.duckdns.org/` should return 200.
-5. Verify the bot status: `ssh root@... 'systemctl status yhilbot'`. If it's running and the user is happy, leave it alone.
-6. Pick up open items from "Things that aren't done" or whatever the user requests.
-7. **Before any destructive operation** (especially anything touching SSH config, fail2ban, or the firewall): whitelist your own IP first to avoid lockout. There is a footgun here — see the section above on how Devin previously locked itself out.
-
-## 11. Key files for quick orientation
-
-- <ref_file file="/home/ubuntu/yhilyanty-site/README.md" /> — user-facing readme
-- <ref_file file="/home/ubuntu/yhilyanty-site/MIGRATION.md" /> — VPS migration runbook
-- <ref_file file="/home/ubuntu/yhilyanty-site/deploy/DEPLOY.md" /> — fresh-server install steps
-- <ref_file file="/home/ubuntu/yhilyanty-site/deploy/nginx.conf" /> — nginx template
-- <ref_file file="/home/ubuntu/yhilyanty-site/deploy/yhilyanty-site.service" /> — systemd unit
-- <ref_file file="/home/ubuntu/yhilyanty-site/.env.example" /> — required env vars
+- Cloudflare proxy (needs a real domain to get around the DuckDNS nameserver issue)
+- CSRF tokens on admin POST forms — rate limits, same-site cookies and owner gating cover most of it, but this would be belt-and-suspenders
+- captcha is on `/api/merch/order`; the admin forms are still just rate-limited
+- automated backups of `.cms-overrides/` (cron to S3 or wherever)
+- proper CI/CD — deploys are still manual git pull / scp
+- uptime monitoring
