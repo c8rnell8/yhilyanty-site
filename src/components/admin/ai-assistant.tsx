@@ -2,17 +2,24 @@
 
 import {
   CircleNotchIcon,
+  ImageSquareIcon,
   PaperPlaneRightIcon,
   RobotIcon,
   TrashIcon,
   UserIcon,
   WarningCircleIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
 import { Link } from "@/i18n/navigation";
 
-type Msg = { role: "user" | "model"; text: string };
+type MsgImage = { mimeType: string; data: string };
+type Msg = { role: "user" | "model"; text: string; images?: MsgImage[] };
+
+const MAX_ATTACH = 4;
+const MAX_ATTACH_BYTES = 3 * 1024 * 1024;
+const ATTACH_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 const SUGGESTIONS = [
   "Напиши короткий опис нашої спільноти для головної сторінки",
@@ -24,9 +31,38 @@ const SUGGESTIONS = [
 export function AiAssistant({ configured }: { configured: boolean }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [pending, setPending] = useState<MsgImage[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function attachFiles(list: FileList | null) {
+    if (!list) return;
+    setErr(null);
+    const files = Array.from(list).slice(0, MAX_ATTACH - pending.length);
+    for (const f of files) {
+      if (!ATTACH_MIMES.includes(f.type)) {
+        setErr("Можна прикріпити лише картинки (PNG, JPG, WebP, GIF).");
+        continue;
+      }
+      if (f.size > MAX_ATTACH_BYTES) {
+        setErr(`«${f.name}» завелика — максимум 3 МБ на картинку.`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = String(reader.result || "");
+        const base64 = url.split(",")[1];
+        if (!base64) return;
+        setPending((p) =>
+          p.length >= MAX_ATTACH ? p : [...p, { mimeType: f.type, data: base64 }],
+        );
+      };
+      reader.readAsDataURL(f);
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -37,11 +73,14 @@ export function AiAssistant({ configured }: { configured: boolean }) {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if ((!trimmed && pending.length === 0) || busy) return;
     setErr(null);
-    const next: Msg[] = [...messages, { role: "user", text: trimmed }];
+    const userMsg: Msg = { role: "user", text: trimmed || "Що на цьому зображенні?" };
+    if (pending.length) userMsg.images = pending;
+    const next: Msg[] = [...messages, userMsg];
     setMessages(next);
     setInput("");
+    setPending([]);
     setBusy(true);
     try {
       const res = await fetch("/api/admin/ai", {
@@ -164,6 +203,19 @@ export function AiAssistant({ configured }: { configured: boolean }) {
                     : "bg-black/30 border border-[color:var(--border)]"
                 }`}
               >
+                {m.images && m.images.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mb-2">
+                    {m.images.map((img, j) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={j}
+                        src={`data:${img.mimeType};base64,${img.data}`}
+                        alt=""
+                        className="max-h-40 rounded-sm border border-[color:var(--border)]"
+                      />
+                    ))}
+                  </div>
+                )}
                 {m.text}
               </div>
             </div>
@@ -189,6 +241,28 @@ export function AiAssistant({ configured }: { configured: boolean }) {
           </div>
         )}
 
+        {pending.length > 0 && (
+          <div className="border-t border-[color:var(--border)] px-3 pt-3 flex gap-2 flex-wrap">
+            {pending.map((img, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:${img.mimeType};base64,${img.data}`}
+                  alt=""
+                  className="size-16 object-cover rounded-sm border border-[color:var(--border-strong)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+                  className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-black border border-[color:var(--border-strong)] flex items-center justify-center text-[color:var(--muted-2)] hover:text-rose-300"
+                >
+                  <XIcon className="size-3" weight="bold" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -196,6 +270,23 @@ export function AiAssistant({ configured }: { configured: boolean }) {
           }}
           className="border-t border-[color:var(--border)] p-3 flex items-end gap-2"
         >
+          <input
+            ref={fileRef}
+            type="file"
+            accept={ATTACH_MIMES.join(",")}
+            multiple
+            hidden
+            onChange={(e) => attachFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={!configured || busy || pending.length >= MAX_ATTACH}
+            title="Прикріпити картинку (до 4 шт, по 3 МБ)"
+            className="shrink-0 inline-flex items-center justify-center size-10 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40 disabled:opacity-40"
+          >
+            <ImageSquareIcon className="size-5" weight="bold" />
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -205,6 +296,12 @@ export function AiAssistant({ configured }: { configured: boolean }) {
                 send(input);
               }
             }}
+            onPaste={(e) => {
+              if (e.clipboardData?.files?.length) {
+                e.preventDefault();
+                attachFiles(e.clipboardData.files);
+              }
+            }}
             disabled={!configured || busy}
             rows={1}
             placeholder={configured ? "Напиши повідомлення…" : "Спочатку налаштуй GEMINI_API_KEY"}
@@ -212,7 +309,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
           />
           <button
             type="submit"
-            disabled={!configured || busy || !input.trim()}
+            disabled={!configured || busy || (!input.trim() && pending.length === 0)}
             className="shrink-0 inline-flex items-center justify-center size-10 rounded-sm bg-[color:var(--accent)] text-black hover:bg-[color:var(--accent-hard)] disabled:opacity-40"
           >
             <PaperPlaneRightIcon className="size-5" weight="bold" />

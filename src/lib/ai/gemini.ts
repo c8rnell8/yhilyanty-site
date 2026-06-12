@@ -6,7 +6,11 @@
  */
 
 export type ChatRole = "user" | "model";
-export type ChatMessage = { role: ChatRole; text: string };
+export type ChatImage = {
+  mimeType: string; // image/png, image/jpeg, image/webp, image/gif
+  data: string; // base64, no data: prefix
+};
+export type ChatMessage = { role: ChatRole; text: string; images?: ChatImage[] };
 
 // The -latest alias tracks whatever lite model Google currently serves on
 // the free tier, so the site keeps working when they rotate models. The
@@ -47,7 +51,12 @@ async function callModel(
   const body: Record<string, unknown> = {
     contents: history.map((m) => ({
       role: m.role,
-      parts: [{ text: m.text }],
+      parts: [
+        ...(m.images || []).map((img) => ({
+          inline_data: { mime_type: img.mimeType, data: img.data },
+        })),
+        { text: m.text },
+      ],
     })),
     generationConfig: {
       temperature: opts?.temperature ?? 0.7,

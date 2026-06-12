@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   geminiChat,
@@ -21,7 +21,10 @@ const SYSTEM_PROMPT = `Ти — помічник власника сайту с�
 - /admin/layout-editor — міняти порядок секцій головної сторінки або ховати їх.
 - /admin/pages — створювати власні сторінки (текст, фото, галерея, кнопки).
 - /admin/nav — редагувати меню зверху і футер.
-- /admin/orders — переглядати замовлення мерчу і відмічати виконані.
+- /admin/orders — переглядати замовлення мерчу і відмічати виконані (доступно адмінам і власнику).
+- /admin/team — видавати посади (тільки власник): адмін або редактор за Discord ID.
+
+Тобі можуть надсилати зображення (скріншоти сайту, фото) — описуй що бачиш і допомагай на їх основі.
 
 Правила відповіді:
 - Відповідай тією мовою, якою написав користувач (українською або російською).
@@ -31,15 +34,24 @@ const SYSTEM_PROMPT = `Ти — помічник власника сайту с�
 
 const MAX_MESSAGES = 30;
 const MAX_LEN = 8000;
+const MAX_IMAGES_PER_MSG = 4;
+// ~3 MB of raw image = ~4 MB of base64. Plenty for screenshots.
+const MAX_IMAGE_B64 = 4 * 1024 * 1024;
+const IMAGE_MIMES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("editor");
   if (guard) return guard;
   return NextResponse.json({ configured: geminiConfigured() });
 }
 
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
 
   const limited = rateLimit(req, "ai", 30, 600);
@@ -67,13 +79,41 @@ export async function POST(req: Request) {
   for (const m of raw) {
     const role = (m as { role?: unknown }).role;
     const text = (m as { text?: unknown }).text;
+    const images = (m as { images?: unknown }).images;
     if ((role !== "user" && role !== "model") || typeof text !== "string") {
       return NextResponse.json({ error: "Bad message shape" }, { status: 400 });
     }
     if (text.length > MAX_LEN) {
       return NextResponse.json({ error: "Message too long" }, { status: 400 });
     }
-    history.push({ role, text });
+    const msg: ChatMessage = { role, text };
+    if (images !== undefined) {
+      if (
+        role !== "user" ||
+        !Array.isArray(images) ||
+        images.length > MAX_IMAGES_PER_MSG
+      ) {
+        return NextResponse.json({ error: "Bad images" }, { status: 400 });
+      }
+      const clean = [];
+      for (const img of images) {
+        const mimeType = (img as { mimeType?: unknown }).mimeType;
+        const data = (img as { data?: unknown }).data;
+        if (
+          typeof mimeType !== "string" ||
+          !IMAGE_MIMES.has(mimeType) ||
+          typeof data !== "string" ||
+          !data ||
+          data.length > MAX_IMAGE_B64 ||
+          !/^[A-Za-z0-9+/=]+$/.test(data)
+        ) {
+          return NextResponse.json({ error: "Bad image" }, { status: 400 });
+        }
+        clean.push({ mimeType, data });
+      }
+      if (clean.length) msg.images = clean;
+    }
+    history.push(msg);
   }
 
   try {
