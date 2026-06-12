@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { rejectCrossOrigin } from "@/lib/cms/guard";
 import { isValidMerchId, listVisibleMerchIds, type MerchOrder, writeMerchOrder } from "@/lib/cms/store";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const cross = rejectCrossOrigin(req);
   if (cross) return cross;
+
+  const limited = rateLimit(req, "order", 5, 600);
+  if (limited) return limited;
 
   let body: any;
   try {

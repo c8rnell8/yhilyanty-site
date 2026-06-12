@@ -2,11 +2,15 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { STATE_COOKIE, getDiscordConfig, safeReturnTo } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const limited = rateLimit(request, "login", 20, 600);
+  if (limited) return limited;
+
   const cfg = getDiscordConfig();
   const url = new URL(request.url);
   const returnTo = safeReturnTo(url.searchParams.get("returnTo"));
