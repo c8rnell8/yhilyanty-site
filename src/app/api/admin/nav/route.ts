@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import {
   readNavOverrides,
   writeNavOverrides,
@@ -8,14 +8,14 @@ import {
 } from "@/lib/cms/store";
 
 export async function GET() {
-  const deny = await requireOwner();
+  const deny = await requireRole("editor");
   if (deny) return deny;
   const overrides = await readNavOverrides();
   return NextResponse.json({ overrides });
 }
 
 export async function PUT(req: Request) {
-  const deny = await requireOwner(req);
+  const deny = await requireRole("editor", req);
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {

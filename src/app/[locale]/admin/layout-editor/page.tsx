@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { LayoutEditor } from "@/components/admin/layout-editor";
 import { LANDING_SECTIONS } from "@/lib/cms/sections";
 import { readLayoutOverrides } from "@/lib/cms/store";
@@ -20,7 +21,7 @@ export default async function AdminLayoutPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
   const all = await readLayoutOverrides();
   const landing = all["landing"] || {};

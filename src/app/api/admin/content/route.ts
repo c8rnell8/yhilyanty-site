@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import {
   flattenMessages,
   readTextOverrides,
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  *  { locales: ["ua","ru","en"], defaults: {ua:{},ru:{},en:{}}, overrides: {...} }
  */
 export async function GET(req: Request) {
-  const guard = await requireOwner();
+  const guard = await requireRole("editor");
   if (guard) return guard;
 
   const url = new URL(req.url);
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
  *  Body: { locale: "ua", key: "Hero.title", value: "..." | null }
  */
 export async function PUT(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
 
   let body: { locale?: unknown; key?: unknown; value?: unknown };

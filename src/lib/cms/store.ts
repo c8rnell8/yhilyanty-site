@@ -23,6 +23,7 @@ export const LAYOUT_FILE = path.join(CMS_DIR, "layout.json");
 export const PAGES_FILE = path.join(CMS_DIR, "pages.json");
 export const NAV_FILE = path.join(CMS_DIR, "nav.json");
 export const ORDERS_FILE = path.join(CMS_DIR, "merch-orders.json");
+export const ORDER_UPLOADS_DIR = path.join(CMS_DIR, "order-uploads");
 
 export const MERCH_IDS = ["flag", "mug", "patches"] as const;
 export type MerchId = (typeof MERCH_IDS)[number];
@@ -82,6 +83,7 @@ export type MerchOrder = {
   qty: number;
   size: string;
   notes: string;
+  images?: string[]; // filenames inside ORDER_UPLOADS_DIR
   status: "new" | "seen" | "done" | "cancelled";
 };
 
@@ -326,6 +328,49 @@ export async function setOrderStatus(
     const o = store.orders.find((x) => x.id === id);
     if (o) o.status = status;
     await writeJsonAtomic(ORDERS_FILE, store);
+    return store;
+  });
+}
+
+// team roles
+
+export const TEAM_FILE = path.join(CMS_DIR, "team.json");
+
+export type TeamRole = "admin" | "editor";
+
+export type TeamMember = {
+  id: string; // discord user id
+  name: string;
+  role: TeamRole;
+  addedAt: string;
+};
+
+export type TeamStore = { members: TeamMember[] };
+
+export async function readTeamStore(): Promise<TeamStore> {
+  return readJson<TeamStore>(TEAM_FILE, { members: [] });
+}
+
+export async function upsertTeamMember(m: TeamMember): Promise<TeamStore> {
+  return withMutex(TEAM_FILE, async () => {
+    const store = await readTeamStore();
+    const existing = store.members.find((x) => x.id === m.id);
+    if (existing) {
+      existing.name = m.name;
+      existing.role = m.role;
+    } else {
+      store.members.push(m);
+    }
+    await writeJsonAtomic(TEAM_FILE, store);
+    return store;
+  });
+}
+
+export async function removeTeamMember(id: string): Promise<TeamStore> {
+  return withMutex(TEAM_FILE, async () => {
+    const store = await readTeamStore();
+    store.members = store.members.filter((x) => x.id !== id);
+    await writeJsonAtomic(TEAM_FILE, store);
     return store;
   });
 }

@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
 import { PageEditor } from "@/components/admin/page-editor";
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { findPageById } from "@/lib/cms/store";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function AdminPageEditorRoute({
   const { locale, id } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
   const page = await findPageById(id);
   if (!page) notFound();

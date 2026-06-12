@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { ContentEditor } from "@/components/admin/content-editor";
 import { flattenMessages, readTextOverrides } from "@/lib/cms/store";
 import { routing } from "@/i18n/routing";
@@ -20,7 +21,7 @@ export default async function AdminContentPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
   const defaults: Record<string, Record<string, string>> = {};
   for (const lc of routing.locales) {

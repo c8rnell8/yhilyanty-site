@@ -15,10 +15,12 @@ import {
   TreeStructureIcon,
   RobotIcon,
   PackageIcon,
+  UsersIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { avatarUrl, getSession, isOwner } from "@/lib/auth";
+import { avatarUrl, getSession } from "@/lib/auth";
+import { getRole, roleAtLeast, type Role } from "@/lib/roles";
 import { Link } from "@/i18n/navigation";
 
 const MOCK_APPLICATIONS = [
@@ -45,9 +47,9 @@ export default async function AdminPage({
   const t = await getTranslations("Admin");
 
   const session = await getSession();
-  const owner = isOwner(session);
+  const role = await getRole(session);
 
-  if (!owner) {
+  if (!role) {
     return (
       <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-16 lg:py-24">
         <div className="max-w-3xl flex flex-col gap-3 mb-12">
@@ -122,6 +124,23 @@ export default async function AdminPage({
     },
   ];
 
+  const cards: {
+    key: "content" | "images" | "layout" | "pages" | "nav" | "ai" | "orders" | "team";
+    href: string;
+    icon: typeof TextTIcon;
+    min: Role;
+  }[] = [
+    { key: "content", href: "/admin/content", icon: TextTIcon, min: "editor" },
+    { key: "images", href: "/admin/images", icon: ImageIcon, min: "editor" },
+    { key: "layout", href: "/admin/layout-editor", icon: StackIcon, min: "editor" },
+    { key: "pages", href: "/admin/pages", icon: FileTextIcon, min: "editor" },
+    { key: "nav", href: "/admin/nav", icon: TreeStructureIcon, min: "editor" },
+    { key: "ai", href: "/admin/ai", icon: RobotIcon, min: "editor" },
+    { key: "orders", href: "/admin/orders", icon: PackageIcon, min: "admin" },
+    { key: "team", href: "/admin/team", icon: UsersIcon, min: "owner" },
+  ];
+  const visibleCards = cards.filter((c) => roleAtLeast(role, c.min));
+
   return (
     <section className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10 py-16 lg:py-24">
       <div className="flex items-start justify-between mb-12 gap-6 flex-wrap">
@@ -137,7 +156,7 @@ export default async function AdminPage({
           ) : null}
           <div className="flex flex-col leading-tight">
             <span className="font-mono text-sm">{session?.globalName || session?.username}</span>
-            <span className="tactical-text text-[color:var(--accent)]">CMD</span>
+            <span className="tactical-text text-[color:var(--accent)]">{role.toUpperCase()}</span>
           </div>
           <a
             href="/api/auth/logout"
@@ -150,146 +169,31 @@ export default async function AdminPage({
 
       {/* CMS quick links */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-10">
-        <Link
-          href="/admin/content"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <TextTIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Тексти</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
+        {visibleCards.map(({ key, href, icon: Icon }) => (
+          <Link
+            key={key}
+            href={href}
+            className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
+          >
+            <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
+              <Icon className="size-6 text-black" weight="bold" />
             </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Редагуй кожний напис на сайті по 3 мовах. Зміни застосовуються миттєво.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/images"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <ImageIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Зображення</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold text-base tracking-tight">
+                  {t(`cards.${key}.title`)}
+                </h3>
+                <ArrowRightIcon
+                  className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
+                  weight="bold"
+                />
+              </div>
+              <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
+                {t(`cards.${key}.body`)}
+              </p>
             </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Заливай нові фото — старі замінюються в галереї та на детальних сторінках.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/layout-editor"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <StackIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Секції лендінгу</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
-            </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Переставляй порядок або ховай цілі блоки головної сторінки.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/pages"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <FileTextIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Сторінки</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
-            </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Створюй та редагуй власні сторінки. Текст, зображення, галерея, CTA-кнопки.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/nav"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <TreeStructureIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Навбар і футер</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
-            </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Додавай, перейменовуй, переставляй або ховай пункти меню зверху і внизу сайту.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/ai"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <RobotIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">AI-помічник</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
-            </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Запитай як щось зробити на сайті чи попроси написати готовий текст.
-            </p>
-          </div>
-        </Link>
-        <Link
-          href="/admin/orders"
-          className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
-        >
-          <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
-            <PackageIcon className="size-6 text-black" weight="bold" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-base tracking-tight">Замовлення мерчу</h3>
-              <ArrowRightIcon
-                className="size-4 text-[color:var(--accent)] transition-transform group-hover:translate-x-1"
-                weight="bold"
-              />
-            </div>
-            <p className="text-sm text-[color:var(--muted-2)] leading-relaxed mt-1">
-              Переглядай замовлення з магазину і відмічай виконані.
-            </p>
-          </div>
-        </Link>
+          </Link>
+        ))}
       </div>
 
       <div className="grid gap-px bg-[color:var(--border)] border border-[color:var(--border)] sm:grid-cols-2 lg:grid-cols-4 mb-12">

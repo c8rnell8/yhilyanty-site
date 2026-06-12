@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { geminiChat, GeminiError } from "@/lib/ai/gemini";
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import { setTextOverride } from "@/lib/cms/store";
 import { rateLimit } from "@/lib/rate-limit";
 import { routing } from "@/i18n/routing";
@@ -55,7 +55,7 @@ function parseModelJson(raw: string): Record<string, string> | null {
  *  Returns: { translations: { ua: {...}, en: {...} }, overrides?: { ua: {...}, en: {...} } }
  */
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
 
   const limited = rateLimit(req, "translate", 30, 600);

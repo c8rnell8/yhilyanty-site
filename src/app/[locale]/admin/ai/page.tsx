@@ -3,7 +3,8 @@ import { setRequestLocale } from "next-intl/server";
 
 import { AiAssistant } from "@/components/admin/ai-assistant";
 import { geminiConfigured } from "@/lib/ai/gemini";
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function AdminAiRoute({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
   return <AiAssistant configured={geminiConfigured()} />;
 }

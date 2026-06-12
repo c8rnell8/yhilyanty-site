@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 
 import type { Session } from "@/lib/auth";
+import type { Role } from "@/lib/roles";
 
-type MeResponse = { session: Session | null; owner: boolean };
+type MeResponse = { session: Session | null; owner: boolean; role: Role | null };
 
 export function useClientSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [owner, setOwner] = useState(false);
+  const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export function useClientSession() {
         if (!alive || !data) return;
         setSession(data.session);
         setOwner(data.owner);
+        setRole(data.role ?? null);
       })
       .catch(() => {})
       .finally(() => {
@@ -29,7 +32,7 @@ export function useClientSession() {
     };
   }, []);
 
-  return { session, owner, loading };
+  return { session, owner, role, loading };
 }
 
 export function discordDisplayName(session: Session | null): string {

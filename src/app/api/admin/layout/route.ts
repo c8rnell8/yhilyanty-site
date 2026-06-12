@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import {
   readLayoutOverrides,
   writeLayoutOverrides,
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("editor");
   if (guard) return guard;
   const data = await readLayoutOverrides();
   return NextResponse.json({ layout: data });
@@ -21,7 +21,7 @@ export async function GET() {
  *  Body: { page: "landing", sections: string[], hidden: string[] }
  */
 export async function PUT(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("editor", req);
   if (guard) return guard;
 
   let body: { page?: unknown; sections?: unknown; hidden?: unknown };

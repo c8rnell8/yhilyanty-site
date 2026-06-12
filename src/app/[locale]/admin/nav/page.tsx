@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 
 import { NavEditor } from "@/components/admin/nav-editor";
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { readNavOverrides, readPagesStore } from "@/lib/cms/store";
 import { DEFAULT_NAVBAR_IDS } from "@/lib/cms/nav";
 
@@ -16,7 +17,7 @@ export default async function AdminNavRoute({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
   const overrides = await readNavOverrides();
   const pagesStore = await readPagesStore();
