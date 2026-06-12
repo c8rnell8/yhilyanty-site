@@ -8,7 +8,14 @@
 export type ChatRole = "user" | "model";
 export type ChatMessage = { role: ChatRole; text: string };
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+// The -latest alias tracks whatever lite model Google currently serves on
+// the free tier, so the site keeps working when they rotate models. The
+// rest are fallbacks for when a model is overloaded or loses free quota.
+const MODEL_CANDIDATES = [
+  "gemini-flash-lite-latest",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite",
+];
 
 export function geminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
@@ -23,19 +30,18 @@ export class GeminiError extends Error {
   }
 }
 
-/** Send a chat turn (with prior history) and return the model's reply text. */
-export async function geminiChat(
+export type GeminiOptions = {
+  /** 0 = literal, 1 = creative. Chat wants ~0.7, translation wants ~0.1. */
+  temperature?: number;
+};
+
+async function callModel(
+  key: string,
+  model: string,
   history: ChatMessage[],
   systemPrompt?: string,
+  opts?: GeminiOptions,
 ): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    throw new GeminiError(
-      "GEMINI_API_KEY не налаштований. Додай ключ у .env.local (безкоштовно на aistudio.google.com/apikey).",
-      503,
-    );
-  }
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const body: Record<string, unknown> = {
@@ -43,7 +49,10 @@ export async function geminiChat(
       role: m.role,
       parts: [{ text: m.text }],
     })),
-    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+    generationConfig: {
+      temperature: opts?.temperature ?? 0.7,
+      maxOutputTokens: 2048,
+    },
   };
   if (systemPrompt) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
@@ -75,7 +84,11 @@ export async function geminiChat(
     } catch {
       if (detail) msg = detail.slice(0, 300);
     }
-    throw new GeminiError(msg, res.status === 429 ? 429 : 502);
+    const status =
+      res.status === 429 || res.status === 503 || res.status === 404
+        ? res.status
+        : 502;
+    throw new GeminiError(msg, status);
   }
 
   const data = (await res.json()) as {
@@ -99,4 +112,41 @@ export async function geminiChat(
     throw new GeminiError("Gemini повернув порожню відповідь.", 502);
   }
   return text;
+}
+
+/** Send a chat turn (with prior history) and return the model's reply text.
+ *  Falls through the candidate models when one is overloaded or has no
+ *  free quota, so the owner never has to touch this. */
+export async function geminiChat(
+  history: ChatMessage[],
+  systemPrompt?: string,
+  opts?: GeminiOptions,
+): Promise<string> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new GeminiError(
+      "GEMINI_API_KEY не налаштований. Додай ключ у .env.local (безкоштовно на aistudio.google.com/apikey).",
+      503,
+    );
+  }
+  const models = process.env.GEMINI_MODEL
+    ? [process.env.GEMINI_MODEL, ...MODEL_CANDIDATES]
+    : MODEL_CANDIDATES;
+
+  let lastErr: GeminiError | null = null;
+  for (const model of models) {
+    try {
+      return await callModel(key, model, history, systemPrompt, opts);
+    } catch (e) {
+      if (
+        e instanceof GeminiError &&
+        (e.status === 429 || e.status === 503 || e.status === 404)
+      ) {
+        lastErr = e;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr ?? new GeminiError("Gemini недоступний.", 502);
 }

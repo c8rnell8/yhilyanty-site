@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   CircleNotchIcon,
   MagnifyingGlassIcon,
+  TranslateIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 
@@ -32,6 +33,8 @@ export function ContentEditor({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
+  const [translatingKey, setTranslatingKey] = useState<string | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const localeDefaults = defaults[activeLocale] || {};
@@ -109,6 +112,79 @@ export function ContentEditor({
     }
   }
 
+  const otherLocales = locales.filter((l) => l !== activeLocale);
+
+  async function callTranslate(items: Record<string, string>): Promise<void> {
+    const res = await fetch("/api/admin/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: activeLocale,
+        to: otherLocales,
+        items,
+        save: true,
+      }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+    if (j.overrides) {
+      setOverrides((p) => ({ ...p, ...j.overrides }));
+    }
+  }
+
+  /** Translate one row from the active locale into the other two and save. */
+  async function translateRow(key: string) {
+    const value = drafts[key] ?? localeOverrides[key] ?? localeDefaults[key];
+    if (!value?.trim()) return;
+    setTranslatingKey(key);
+    setErrorByKey((p) => {
+      const c = { ...p };
+      delete c[key];
+      return c;
+    });
+    try {
+      await callTranslate({ [key]: value });
+      setSavedKey(key);
+      startTransition(() => {});
+    } catch (e) {
+      setErrorByKey((p) => ({
+        ...p,
+        [key]: e instanceof Error ? e.message : String(e),
+      }));
+    } finally {
+      setTranslatingKey((cur) => (cur === key ? null : cur));
+    }
+  }
+
+  /** Translate every overridden key of the active locale into the others. */
+  async function translateAllOverrides() {
+    const entries = Object.entries(localeOverrides).filter(([, v]) => v?.trim());
+    if (entries.length === 0) return;
+    if (
+      !window.confirm(
+        `Перекласти ${entries.length} змінених текстів з ${activeLocale.toUpperCase()} на ${otherLocales
+          .map((l) => l.toUpperCase())
+          .join(" і ")}? Існуючі тексти цих мов будуть замінені.`,
+      )
+    )
+      return;
+
+    const batchSize = 15;
+    try {
+      for (let i = 0; i < entries.length; i += batchSize) {
+        setBulkProgress(`${Math.min(i + batchSize, entries.length)}/${entries.length}`);
+        await callTranslate(Object.fromEntries(entries.slice(i, i + batchSize)));
+      }
+      startTransition(() => {});
+    } catch (e) {
+      window.alert(
+        `Переклад зупинився: ${e instanceof Error ? e.message : String(e)}. Вже перекладене збережено — натисни ще раз, щоб продовжити.`,
+      );
+    } finally {
+      setBulkProgress(null);
+    }
+  }
+
   async function reset(key: string) {
     setSavingKey(key);
     try {
@@ -164,6 +240,27 @@ export function ContentEditor({
           <span className="tactical-text text-[color:var(--muted)]">
             ОВЕРРАЙДІВ: <span className="text-[color:var(--accent)]">{overrideCount}</span>
           </span>
+          {overrideCount > 0 && (
+            <button
+              type="button"
+              onClick={translateAllOverrides}
+              disabled={bulkProgress !== null}
+              title={`Перекласти всі змінені тексти з ${activeLocale.toUpperCase()} на інші мови`}
+              className="tactical-text inline-flex items-center gap-2 px-3 h-9 rounded-sm border border-[color:var(--accent)]/40 text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] disabled:opacity-50"
+            >
+              {bulkProgress ? (
+                <>
+                  <CircleNotchIcon className="size-4 animate-spin" weight="bold" />
+                  ПЕРЕКЛАДАЮ {bulkProgress}
+                </>
+              ) : (
+                <>
+                  <TranslateIcon className="size-4" weight="bold" />
+                  ПЕРЕКЛАСТИ ВСЕ НА {otherLocales.map((l) => l.toUpperCase()).join("+")}
+                </>
+              )}
+            </button>
+          )}
           {isPending && (
             <span className="tactical-text text-[color:var(--accent)] inline-flex items-center gap-1">
               <CircleNotchIcon className="size-3 animate-spin" /> SYNC
@@ -264,6 +361,20 @@ export function ContentEditor({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => translateRow(key)}
+                        disabled={translatingKey === key || savingKey === key}
+                        title={`Перекласти цей текст на ${otherLocales.map((l) => l.toUpperCase()).join(" і ")} та зберегти`}
+                        className="tactical-text inline-flex items-center gap-1 px-2 h-8 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40 disabled:opacity-50"
+                      >
+                        {translatingKey === key ? (
+                          <CircleNotchIcon className="size-3 animate-spin" weight="bold" />
+                        ) : (
+                          <TranslateIcon className="size-3" weight="bold" />
+                        )}
+                        {otherLocales.map((l) => l.toUpperCase()).join("+")}
+                      </button>
                       {isOverridden && (
                         <button
                           type="button"
