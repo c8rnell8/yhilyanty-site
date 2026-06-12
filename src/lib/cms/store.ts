@@ -85,6 +85,7 @@ export type MerchOrder = {
   notes: string;
   images?: string[]; // filenames inside ORDER_UPLOADS_DIR
   status: "new" | "seen" | "done" | "cancelled";
+  archived?: boolean;
 };
 
 export type OrdersStore = { orders: MerchOrder[] };
@@ -321,6 +322,33 @@ export async function writeMerchOrder(order: MerchOrder): Promise<MerchOrder> {
 
 export async function writeOrdersStore(o: OrdersStore): Promise<void> {
   await withMutex(ORDERS_FILE, () => writeJsonAtomic(ORDERS_FILE, o));
+}
+
+export async function setOrderArchived(
+  id: string,
+  archived: boolean
+): Promise<OrdersStore> {
+  return withMutex(ORDERS_FILE, async () => {
+    const store = await readOrdersStore();
+    const o = store.orders.find((x) => x.id === id);
+    if (o) o.archived = archived;
+    await writeJsonAtomic(ORDERS_FILE, store);
+    return store;
+  });
+}
+
+/** Removes the order and reports it back so the caller can clean up the
+ *  uploaded photos that belonged to it. */
+export async function deleteOrder(
+  id: string
+): Promise<{ store: OrdersStore; removed: MerchOrder | null }> {
+  return withMutex(ORDERS_FILE, async () => {
+    const store = await readOrdersStore();
+    const removed = store.orders.find((x) => x.id === id) || null;
+    store.orders = store.orders.filter((x) => x.id !== id);
+    await writeJsonAtomic(ORDERS_FILE, store);
+    return { store, removed };
+  });
 }
 
 export async function setOrderStatus(

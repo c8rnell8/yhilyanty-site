@@ -2,9 +2,11 @@
 
 import {
   ArchiveIcon,
+  ArrowCounterClockwiseIcon,
   CheckCircleIcon,
   CircleNotchIcon,
   EyeIcon,
+  TrashIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
@@ -30,16 +32,24 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
   const [orders, setOrders] = useState(initialOrders);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [tab, setTab] = useState<"active" | "archive">("active");
 
-  async function changeStatus(id: string, status: MerchOrder["status"]) {
+  async function call(method: "PATCH" | "DELETE", id: string, body?: object) {
     setBusyId(id);
     setErr(null);
     try {
-      const res = await fetch("/api/admin/orders", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
-      });
+      const res = await fetch(
+        method === "DELETE" ? `/api/admin/orders?id=${id}` : "/api/admin/orders",
+        {
+          method,
+          ...(body
+            ? {
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              }
+            : {}),
+        },
+      );
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
       setOrders(j.orders ?? []);
@@ -50,7 +60,23 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
     }
   }
 
-  const fresh = orders.filter((o) => o.status === "new").length;
+  const changeStatus = (id: string, status: MerchOrder["status"]) =>
+    call("PATCH", id, { id, status });
+  const setArchived = (id: string, archived: boolean) =>
+    call("PATCH", id, { id, archived });
+  const removeOrder = (id: string) => {
+    if (
+      window.confirm(
+        "Видалити замовлення назавжди разом з прикріпленими фото? Це не можна скасувати.",
+      )
+    )
+      call("DELETE", id);
+  };
+
+  const active = orders.filter((o) => !o.archived);
+  const archived = orders.filter((o) => o.archived);
+  const shown = tab === "active" ? active : archived;
+  const fresh = active.filter((o) => o.status === "new").length;
 
   return (
     <section className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-10 py-10">
@@ -67,8 +93,30 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
         <p className="text-sm text-[color:var(--muted-2)]">
           {orders.length === 0
             ? "Поки що замовлень немає."
-            : `Всього: ${orders.length}, нових: ${fresh}.`}
+            : `Всього: ${orders.length}, нових: ${fresh}, в архіві: ${archived.length}.`}
         </p>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6">
+        {(
+          [
+            ["active", `Активні (${active.length})`],
+            ["archive", `Архів (${archived.length})`],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`px-4 h-9 rounded-sm border tactical-text transition-colors ${
+              tab === key
+                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
+                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:border-[color:var(--accent)]/40"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {err && (
@@ -77,8 +125,14 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
         </div>
       )}
 
+      {shown.length === 0 && (
+        <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] p-8 text-center text-[color:var(--muted-2)] text-sm">
+          {tab === "active" ? "Активних замовлень немає." : "Архів порожній."}
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
-        {orders.map((o) => (
+        {shown.map((o) => (
           <div
             key={o.id}
             className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] p-5 flex flex-col gap-4"
@@ -145,8 +199,28 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                         onClick={() => changeStatus(o.id, "new")}
                         className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--accent)] transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                       >
-                        <ArchiveIcon className="size-3.5" weight="bold" />
+                        <ArrowCounterClockwiseIcon className="size-3.5" weight="bold" />
                         Повернути
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setArchived(o.id, !o.archived)}
+                      title={o.archived ? "Повернути з архіву" : "В архів"}
+                      className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--accent)] transition-colors text-xs font-mono uppercase tracking-[0.1em]"
+                    >
+                      <ArchiveIcon className="size-3.5" weight="bold" />
+                      {o.archived ? "З архіву" : "Архів"}
+                    </button>
+                    {o.archived && (
+                      <button
+                        type="button"
+                        onClick={() => removeOrder(o.id)}
+                        title="Видалити назавжди"
+                        className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-rose-500/40 hover:text-rose-300 transition-colors text-xs font-mono uppercase tracking-[0.1em]"
+                      >
+                        <TrashIcon className="size-3.5" weight="bold" />
+                        Видалити
                       </button>
                     )}
                   </>
