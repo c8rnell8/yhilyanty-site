@@ -15,7 +15,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 
 type MsgImage = { mimeType: string; data: string };
-type Msg = { role: "user" | "model"; text: string; images?: MsgImage[] };
+type Applied = { locale: string; key: string; value: string };
+type Msg = {
+  role: "user" | "model";
+  text: string;
+  images?: MsgImage[];
+  applied?: Applied[];
+};
 
 const MAX_ATTACH = 4;
 const MAX_ATTACH_BYTES = 3 * 1024 * 1024;
@@ -90,7 +96,10 @@ export function AiAssistant({ configured }: { configured: boolean }) {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
-      setMessages([...next, { role: "model", text: j.reply }]);
+      setMessages([
+        ...next,
+        { role: "model", text: j.reply, applied: j.applied || [] },
+      ]);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
       setMessages(messages);
@@ -217,6 +226,18 @@ export function AiAssistant({ configured }: { configured: boolean }) {
                   </div>
                 )}
                 {m.text}
+                {m.applied && m.applied.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-[color:var(--border)] flex flex-col gap-1">
+                    {m.applied.map((a, j) => (
+                      <span
+                        key={j}
+                        className="font-mono text-[11px] text-emerald-300 inline-flex items-center gap-1.5"
+                      >
+                        ✓ {a.locale.toUpperCase()} · {a.key}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
