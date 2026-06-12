@@ -22,6 +22,10 @@ export const IMAGES_FILE = path.join(CMS_DIR, "images.json");
 export const LAYOUT_FILE = path.join(CMS_DIR, "layout.json");
 export const PAGES_FILE = path.join(CMS_DIR, "pages.json");
 export const NAV_FILE = path.join(CMS_DIR, "nav.json");
+export const ORDERS_FILE = path.join(CMS_DIR, "merch-orders.json");
+
+export const MERCH_IDS = ["flag", "mug", "patches"] as const;
+export type MerchId = (typeof MERCH_IDS)[number];
 
 export type TextOverrides = Record<string, Record<string, string>>;
 export type ImageOverrides = Record<string, string>;
@@ -64,6 +68,24 @@ export type NavOverrides = {
   navbar?: NavItem[] | null;
   footer?: NavItem[] | null;
 };
+
+export type MerchOrder = {
+  id: string;
+  createdAt: string;
+  item: string;
+  title: string;
+  price: string;
+  discord: string;
+  callsign: string;
+  phone: string;
+  city: string;
+  qty: number;
+  size: string;
+  notes: string;
+  status: "new" | "seen" | "done" | "cancelled";
+};
+
+export type OrdersStore = { orders: MerchOrder[] };
 
 const mutexes = new Map<string, Promise<unknown>>();
 async function withMutex<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -270,4 +292,40 @@ export async function readNavOverrides(): Promise<NavOverrides> {
 
 export async function writeNavOverrides(o: NavOverrides): Promise<void> {
   await withMutex(NAV_FILE, () => writeJsonAtomic(NAV_FILE, o));
+}
+
+// merch orders
+
+export function isValidMerchId(id: string): id is MerchId {
+  return (MERCH_IDS as readonly string[]).includes(id);
+}
+
+export function listVisibleMerchIds(): MerchId[] {
+  return [...MERCH_IDS];
+}
+
+export async function readOrdersStore(): Promise<OrdersStore> {
+  return readJson<OrdersStore>(ORDERS_FILE, { orders: [] });
+}
+
+export async function writeMerchOrder(order: MerchOrder): Promise<MerchOrder> {
+  return withMutex(ORDERS_FILE, async () => {
+    const store = await readOrdersStore();
+    store.orders.unshift(order);
+    await writeJsonAtomic(ORDERS_FILE, store);
+    return order;
+  });
+}
+
+export async function setOrderStatus(
+  id: string,
+  status: MerchOrder["status"]
+): Promise<OrdersStore> {
+  return withMutex(ORDERS_FILE, async () => {
+    const store = await readOrdersStore();
+    const o = store.orders.find((x) => x.id === id);
+    if (o) o.status = status;
+    await writeJsonAtomic(ORDERS_FILE, store);
+    return store;
+  });
 }

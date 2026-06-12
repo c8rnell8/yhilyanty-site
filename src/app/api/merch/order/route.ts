@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { rejectCrossOrigin } from "@/lib/cms/guard";
 import { isValidMerchId, listVisibleMerchIds, type MerchOrder, writeMerchOrder } from "@/lib/cms/store";
 
 export async function POST(req: Request) {
+  const cross = rejectCrossOrigin(req);
+  if (cross) return cross;
+
   let body: any;
   try {
     body = await req.json();
@@ -11,9 +15,13 @@ export async function POST(req: Request) {
 
   // captcha first
   const token = body.captchaToken;
-  const secret = process.env.HCAPTCHA_SECRET;
+  // The form falls back to hCaptcha's public test sitekey, so the server has
+  // to fall back to the matching test secret or local orders never pass.
+  const secret =
+    process.env.HCAPTCHA_SECRET ||
+    "0x0000000000000000000000000000000000000000";
 
-  if (!token) {
+  if (!token || typeof token !== "string") {
     return NextResponse.json({ error: "Подтвердите капчу!" }, { status: 400 });
   }
 
@@ -21,7 +29,7 @@ export async function POST(req: Request) {
     const verify = await fetch("https://hcaptcha.com/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `response=${token}&secret=${secret}`,
+      body: new URLSearchParams({ response: token, secret }).toString(),
     });
     const verification = await verify.json();
     if (!verification.success) {
@@ -44,7 +52,7 @@ export async function POST(req: Request) {
     callsign: String(body.callsign || "").trim().slice(0, 50),
     phone: String(body.phone || "").trim().slice(0, 40),
     city: String(body.city || "").trim().slice(0, 200),
-    qty: Number(body.qty) || 1,
+    qty: Math.max(1, Math.min(99, Math.floor(Number(body.qty)) || 1)),
     size: String(body.size || ""),
     notes: String(body.notes || "").slice(0, 1000),
     status: "new",
