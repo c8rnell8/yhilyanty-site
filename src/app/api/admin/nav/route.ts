@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const deny = await requireOwner();
+  const deny = await requireOwner(req);
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {

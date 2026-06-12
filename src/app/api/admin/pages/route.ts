@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const deny = await requireOwner();
+  const deny = await requireOwner(req);
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const deny = await requireOwner();
+  const deny = await requireOwner(req);
   if (deny) return deny;
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -86,7 +86,7 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const deny = await requireOwner();
+  const deny = await requireOwner(req);
   if (deny) return deny;
   const url = new URL(req.url);
   const id = url.searchParams.get("id");

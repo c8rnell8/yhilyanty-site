@@ -21,7 +21,7 @@ export async function GET() {
  *  Body: { page: "landing", sections: string[], hidden: string[] }
  */
 export async function PUT(req: Request) {
-  const guard = await requireOwner();
+  const guard = await requireOwner(req);
   if (guard) return guard;
 
   let body: { page?: unknown; sections?: unknown; hidden?: unknown };

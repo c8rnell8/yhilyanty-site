@@ -52,7 +52,7 @@ export async function GET(req: Request) {
  *  Body: { locale: "ua", key: "Hero.title", value: "..." | null }
  */
 export async function PUT(req: Request) {
-  const guard = await requireOwner();
+  const guard = await requireOwner(req);
   if (guard) return guard;
 
   let body: { locale?: unknown; key?: unknown; value?: unknown };

@@ -38,6 +38,7 @@ Nothing secret is committed. Where everything lives:
 - SSH: key at `/home/ubuntu/yhil-server-key` on the deploy host, public key in the server's `/root/.ssh/authorized_keys`. Root password is the fallback and only kept in the password manager.
 - Discord OAuth + bot share one app: https://discord.com/developers/applications/1497897295264612372 (`DISCORD_CLIENT_ID = 1497897295264612372`). Callback `https://yhil.duckdns.org/api/auth/callback`. `DISCORD_CLIENT_SECRET` is in `/opt/yhilyanty-site/.env.production` (chmod 600), `DISCORD_TOKEN` in `/opt/yhilbot/yhil.env` (chmod 600), `OWNER_ID = 546710148144562176`.
 - Bot ↔ site shared secret: `YHILBOT_API_TOKEN` (a `yhil_`-prefixed hex string from `openssl rand -hex 32`). Site reads it as `YHILBOT_API_TOKEN`, bot as `WEB_EDITOR_TOKEN` — they must match.
+- `SESSION_SECRET` signs the login cookie (any `openssl rand -hex 32` string). If unset the site falls back to `DISCORD_CLIENT_SECRET`, so old deployments keep working, but set it anyway — then you can rotate the OAuth secret without logging everyone out.
 - DuckDNS token is only in the DuckDNS account.
 - There's a Cloudflare zone for `yhil.duckdns.org` but it's stuck `pending` — DuckDNS won't let you change nameservers, so the CF proxy is off. The server-side hardening (fail2ban + CrowdSec + nginx rate limits) covers for it. To actually use CF, buy a real domain and point it at the same CF account.
 
@@ -161,7 +162,6 @@ yhilyanty-site/
 ## Not done yet
 
 - Cloudflare proxy (needs a real domain to get around the DuckDNS nameserver issue)
-- CSRF tokens on admin POST forms — rate limits, same-site cookies and owner gating cover most of it, but this would be belt-and-suspenders
 - captcha is on `/api/merch/order`; the admin forms are still just rate-limited
 - automated backups of `.cms-overrides/` (cron to S3 or wherever)
 - proper CI/CD — deploys are still manual git pull / scp

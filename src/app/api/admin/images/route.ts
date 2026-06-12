@@ -29,7 +29,7 @@ export async function GET() {
  *  Fields: key=<slot>, file=<image>
  */
 export async function POST(req: Request) {
-  const guard = await requireOwner();
+  const guard = await requireOwner(req);
   if (guard) return guard;
 
   const ct = req.headers.get("content-type") || "";
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 
 /** DELETE /api/admin/images?key=<slot>  — revert to default */
 export async function DELETE(req: Request) {
-  const guard = await requireOwner();
+  const guard = await requireOwner(req);
   if (guard) return guard;
   const url = new URL(req.url);
   const key = url.searchParams.get("key") || "";
