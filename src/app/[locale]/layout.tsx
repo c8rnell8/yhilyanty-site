@@ -8,7 +8,9 @@ import type { ReactNode } from "react";
 import { Footer } from "@/components/nav/footer";
 import { Navbar } from "@/components/nav/navbar";
 import { routing, type Locale } from "@/i18n/routing";
+import { LiveEdit } from "@/components/admin/live-edit";
 import { avatarUrl, getDiscordConfig, getSession, isOwner } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { resolveFooter, resolveNavbar } from "@/lib/cms/nav";
 import { readNavOverrides } from "@/lib/cms/store";
 import "../globals.css";
@@ -57,6 +59,8 @@ export default async function LocaleLayout({
 
   const session = await getSession();
   const owner = isOwner(session);
+  const role = await getRole(session);
+  const canEdit = roleAtLeast(role, "editor");
   const cfg = getDiscordConfig();
   const navSession = session
     ? {
@@ -71,14 +75,14 @@ export default async function LocaleLayout({
   const navbarItems = resolveNavbar(
     navOverrides,
     locale as Locale,
-    owner,
+    canEdit,
     (k) => tNav(k as never),
     () => tNav("admin"),
   );
   const footerItems = resolveFooter(
     navOverrides,
     locale as Locale,
-    owner,
+    canEdit,
     (k) => tNav(k as never),
     () => tNav("admin"),
   );
@@ -98,6 +102,7 @@ export default async function LocaleLayout({
           />
           <main className="flex-1">{children}</main>
           <Footer owner={owner} items={footerItems} />
+          {canEdit && <LiveEdit locale={locale} />}
         </NextIntlClientProvider>
       </body>
     </html>
