@@ -20,6 +20,7 @@ export default async function AdminSystemRoute({
 
   return (
     <SystemPanel
+      locale={locale}
       initialAudit={await readAudit(1000)}
       initialSnapshots={await listSnapshots()}
     />
