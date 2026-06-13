@@ -7,6 +7,12 @@ import { flattenMessages, readTextOverrides, setTextOverride } from "@/lib/cms/s
 import { rateLimit } from "@/lib/rate-limit";
 import { routing } from "@/i18n/routing";
 import {
+  readChatAuthorized,
+  writeChat,
+  type StoredImage,
+  type StoredMessage,
+} from "@/lib/ai/chats";
+import {
   geminiChat,
   geminiConfigured,
   GeminiError,
@@ -131,6 +137,31 @@ async function applyActions(
   return { reply, applied };
 }
 
+/** Validate the user's incoming images. */
+function parseImages(images: unknown): StoredImage[] | NextResponse {
+  if (images === undefined) return [];
+  if (!Array.isArray(images) || images.length > MAX_IMAGES_PER_MSG) {
+    return NextResponse.json({ error: "Bad images" }, { status: 400 });
+  }
+  const clean: StoredImage[] = [];
+  for (const img of images) {
+    const mimeType = (img as { mimeType?: unknown }).mimeType;
+    const data = (img as { data?: unknown }).data;
+    if (
+      typeof mimeType !== "string" ||
+      !IMAGE_MIMES.has(mimeType) ||
+      typeof data !== "string" ||
+      !data ||
+      data.length > MAX_IMAGE_B64 ||
+      !/^[A-Za-z0-9+/=]+$/.test(data)
+    ) {
+      return NextResponse.json({ error: "Bad image" }, { status: 400 });
+    }
+    clean.push({ mimeType, data });
+  }
+  return clean;
+}
+
 export async function POST(req: Request) {
   const guard = await requireRole("editor", req);
   if (guard) return guard;
@@ -138,72 +169,54 @@ export async function POST(req: Request) {
   const limited = rateLimit(req, "ai", 30, 600);
   if (limited) return limited;
 
-  let body: { messages?: unknown };
+  const session = await getSession();
+
+  let body: { chatId?: unknown; text?: unknown; images?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const raw = Array.isArray(body.messages) ? body.messages : null;
-  if (!raw || raw.length === 0) {
-    return NextResponse.json({ error: "messages required" }, { status: 400 });
+  const chatId = typeof body.chatId === "string" ? body.chatId : "";
+  const text = typeof body.text === "string" ? body.text.trim() : "";
+  if (!chatId) {
+    return NextResponse.json({ error: "chatId required" }, { status: 400 });
   }
-  if (raw.length > MAX_MESSAGES) {
-    return NextResponse.json(
-      { error: `Too many messages (max ${MAX_MESSAGES})` },
-      { status: 400 },
-    );
+  if (text.length > MAX_LEN) {
+    return NextResponse.json({ error: "Message too long" }, { status: 400 });
   }
 
-  const history: ChatMessage[] = [];
-  for (const m of raw) {
-    const role = (m as { role?: unknown }).role;
-    const text = (m as { text?: unknown }).text;
-    const images = (m as { images?: unknown }).images;
-    if ((role !== "user" && role !== "model") || typeof text !== "string") {
-      return NextResponse.json({ error: "Bad message shape" }, { status: 400 });
-    }
-    if (text.length > MAX_LEN) {
-      return NextResponse.json({ error: "Message too long" }, { status: 400 });
-    }
-    const msg: ChatMessage = { role, text };
-    if (images !== undefined) {
-      if (
-        role !== "user" ||
-        !Array.isArray(images) ||
-        images.length > MAX_IMAGES_PER_MSG
-      ) {
-        return NextResponse.json({ error: "Bad images" }, { status: 400 });
-      }
-      const clean = [];
-      for (const img of images) {
-        const mimeType = (img as { mimeType?: unknown }).mimeType;
-        const data = (img as { data?: unknown }).data;
-        if (
-          typeof mimeType !== "string" ||
-          !IMAGE_MIMES.has(mimeType) ||
-          typeof data !== "string" ||
-          !data ||
-          data.length > MAX_IMAGE_B64 ||
-          !/^[A-Za-z0-9+/=]+$/.test(data)
-        ) {
-          return NextResponse.json({ error: "Bad image" }, { status: 400 });
-        }
-        clean.push({ mimeType, data });
-      }
-      if (clean.length) msg.images = clean;
-    }
-    history.push(msg);
+  const imagesOrErr = parseImages(body.images);
+  if (imagesOrErr instanceof NextResponse) return imagesOrErr;
+  const images = imagesOrErr;
+
+  if (!text && images.length === 0) {
+    return NextResponse.json({ error: "Empty message" }, { status: 400 });
   }
 
+  const chat = await readChatAuthorized(chatId, session!.id);
+  if (!chat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+
+  // Stored history (capped) becomes the assistant's memory for this turn.
+  const history: ChatMessage[] = chat.messages.slice(-MAX_MESSAGES).map((m) => ({
+    role: m.role,
+    text: m.text,
+    ...(m.images?.length ? { images: m.images } : {}),
+  }));
+  history.push({
+    role: "user",
+    text: text || "Подивись на зображення.",
+    ...(images.length ? { images } : {}),
+  });
+
+  let reply: string;
+  let applied: Applied[];
   try {
-    const session = await getSession();
     const catalog = await buildCatalog();
     const sys = `${SYSTEM_PROMPT}\n\nКаталог текстів сайту (мова|ключ|текст):\n${catalog.text}`;
-    const raw = await geminiChat(history, sys);
-    const { reply, applied } = await applyActions(raw, catalog.keys, session);
-    return NextResponse.json({ reply, applied });
+    const replyRaw = await geminiChat(history, sys);
+    ({ reply, applied } = await applyActions(replyRaw, catalog.keys, session));
   } catch (e) {
     if (e instanceof GeminiError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
@@ -213,4 +226,23 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
+
+  // Persist both turns so the conversation (and its memory) survives reloads.
+  const now = new Date().toISOString();
+  const userMsg: StoredMessage = {
+    role: "user",
+    text,
+    ts: now,
+    authorId: session!.id,
+    authorName: session!.globalName || session!.username,
+    ...(images.length ? { images } : {}),
+  };
+  chat.messages.push(userMsg, { role: "model", text: reply, ts: now });
+  // First user line names an untitled chat.
+  if (chat.title === "Новий чат" && text) {
+    chat.title = text.slice(0, 48);
+  }
+  await writeChat(chat);
+
+  return NextResponse.json({ reply, applied, title: chat.title });
 }

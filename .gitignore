@@ -49,3 +49,6 @@ next-env.d.ts
 # Merch orders
 /.merch-orders/
 /dev-*.log
+/.cms-overrides/ai-chats/
+/.cms-overrides/media/
+/.cms-overrides/order-uploads/
