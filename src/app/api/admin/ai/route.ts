@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auditLog } from "@/lib/audit";
+import { createSnapshot } from "@/lib/backup";
 import { getSession } from "@/lib/auth";
 import { requireRole } from "@/lib/cms/guard";
 import { flattenMessages, readTextOverrides, setTextOverride } from "@/lib/cms/store";
@@ -106,6 +107,7 @@ async function applyActions(
   const locales = routing.locales as readonly string[];
 
   const matches = [...raw.matchAll(ACTION_RE)].slice(0, MAX_ACTIONS);
+  let snapshotted = false;
   for (const m of matches) {
     try {
       const a = JSON.parse(m[1]) as {
@@ -114,6 +116,9 @@ async function applyActions(
         key?: unknown;
         value?: unknown;
       };
+      // The AI's only power is set_text on EXISTING keys — it can never
+      // delete pages, wipe the catalogue or remove the whole site. Anything
+      // it didn't recognise is ignored.
       if (
         a.action !== "set_text" ||
         typeof a.locale !== "string" ||
@@ -125,6 +130,12 @@ async function applyActions(
         a.value.length > 4000
       )
         continue;
+      // Safety net: snapshot the whole CMS once, before the first AI write,
+      // so any change the assistant makes can be rolled back in one click.
+      if (!snapshotted) {
+        snapshotted = true;
+        await createSnapshot().catch(() => {});
+      }
       await setTextOverride(a.locale, a.key, a.value);
       await auditLog(actor, "ai.set_text", `${a.locale}|${a.key}`);
       applied.push({ locale: a.locale, key: a.key, value: a.value });

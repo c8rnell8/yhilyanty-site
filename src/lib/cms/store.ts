@@ -421,7 +421,7 @@ export async function setOrderStatus(
 
 export const TEAM_FILE = path.join(CMS_DIR, "team.json");
 
-export type TeamRole = "admin" | "editor";
+export type TeamRole = "owner" | "admin" | "editor";
 
 export type TeamMember = {
   id: string; // discord user id

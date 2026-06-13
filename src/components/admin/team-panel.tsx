@@ -88,8 +88,20 @@ const STR = {
 } as const;
 
 const ROLE_CLASS: Record<TeamRole, string> = {
+  owner: "bg-amber-500/15 text-amber-300 border-amber-500/40",
   admin: "bg-[color:var(--accent-soft)] text-[color:var(--accent)] border-[color:var(--accent)]/30",
   editor: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+};
+
+const ROLE_NAME: Record<string, Record<TeamRole, string>> = {
+  ua: { owner: "ВЛАСНИК", admin: "АДМІН", editor: "РЕДАКТОР" },
+  ru: { owner: "ВЛАДЕЛЕЦ", admin: "АДМИН", editor: "РЕДАКТОР" },
+  en: { owner: "OWNER", admin: "ADMIN", editor: "EDITOR" },
+};
+const ROLE_HINT3: Record<string, Record<TeamRole, string>> = {
+  ua: { owner: "повний доступ, як у тебе", admin: "контент + мерч + замовлення", editor: "тексти, фото, сторінки, меню, AI" },
+  ru: { owner: "полный доступ, как у тебя", admin: "контент + мерч + заказы", editor: "тексты, фото, страницы, меню, AI" },
+  en: { owner: "full access, like you", admin: "content + merch + orders", editor: "texts, photos, pages, menu, AI" },
 };
 
 export function TeamPanel({
@@ -100,8 +112,9 @@ export function TeamPanel({
   initialMembers: TeamMember[];
 }) {
   const t = STR[locale as keyof typeof STR] || STR.ua;
-  const roleLabel = (r: TeamRole) => (r === "admin" ? t.roleAdmin : t.roleEditor);
-  const roleHint = (r: TeamRole) => (r === "admin" ? t.hintAdmin : t.hintEditor);
+  const lc = (ROLE_NAME[locale] ? locale : "ua") as keyof typeof ROLE_NAME;
+  const roleLabel = (r: TeamRole) => ROLE_NAME[lc][r];
+  const roleHint = (r: TeamRole) => ROLE_HINT3[lc][r];
   const [members, setMembers] = useState(initialMembers);
   const [newId, setNewId] = useState("");
   const [newName, setNewName] = useState("");
@@ -217,8 +230,9 @@ export function TeamPanel({
             onChange={(e) => setNewRole(e.target.value as TeamRole)}
             className="h-11 px-3 rounded-sm bg-black/40 border border-[color:var(--border-strong)] text-sm font-mono focus:outline-none focus:border-[color:var(--accent)]"
           >
-            <option value="editor">{t.optEditor}</option>
-            <option value="admin">{t.optAdmin}</option>
+            <option value="editor">{ROLE_NAME[lc].editor}</option>
+            <option value="admin">{ROLE_NAME[lc].admin}</option>
+            <option value="owner">{ROLE_NAME[lc].owner}</option>
           </select>
           <button
             type="submit"
@@ -272,15 +286,15 @@ export function TeamPanel({
                 <CircleNotchIcon className="size-4 animate-spin text-[color:var(--muted-2)]" weight="bold" />
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      changeRole(m.id, m.name, m.role === "admin" ? "editor" : "admin")
-                    }
-                    className="tactical-text inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40"
+                  <select
+                    value={m.role}
+                    onChange={(e) => changeRole(m.id, m.name, e.target.value as TeamRole)}
+                    className="h-8 px-2 rounded-sm bg-black/40 border border-[color:var(--border-strong)] text-xs font-mono focus:outline-none focus:border-[color:var(--accent)]"
                   >
-                    {m.role === "admin" ? t.toEditor : t.toAdmin}
-                  </button>
+                    <option value="editor">{ROLE_NAME[lc].editor}</option>
+                    <option value="admin">{ROLE_NAME[lc].admin}</option>
+                    <option value="owner">{ROLE_NAME[lc].owner}</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() => remove(m.id)}

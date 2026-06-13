@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auditLog } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { buildBundle, restoreBundle } from "@/lib/backup";
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  *  aren't included (they live in .cms-overrides/images/ — copy that folder
  *  separately when moving servers, see MIGRATION.md). */
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("owner");
   if (guard) return guard;
 
   const bundle = await buildBundle();
@@ -30,7 +30,7 @@ export async function GET() {
 
 /** POST — restore a bundle made by GET. Overwrites the current stores. */
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("owner", req);
   if (guard) return guard;
 
   const limited = rateLimit(req, "backup-restore", 5, 600);

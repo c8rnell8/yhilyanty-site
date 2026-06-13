@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 import {
   readTeamStore,
   removeTeamMember,
@@ -12,20 +12,20 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ROLES: TeamRole[] = ["admin", "editor"];
+const ROLES: TeamRole[] = ["owner", "admin", "editor"];
 const MAX_MEMBERS = 50;
 
-/** Only the owner manages the team - admins and editors can't touch roles,
- *  so nobody can promote themselves or anyone else. */
+/** Only owner/developer manage the team - admins and editors can't touch
+ *  roles, so nobody can promote themselves or anyone else. */
 
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("owner");
   if (guard) return guard;
   return NextResponse.json(await readTeamStore());
 }
 
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("owner", req);
   if (guard) return guard;
 
   let body: { id?: unknown; name?: unknown; role?: unknown };
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("owner", req);
   if (guard) return guard;
   const url = new URL(req.url);
   const id = url.searchParams.get("id") || "";

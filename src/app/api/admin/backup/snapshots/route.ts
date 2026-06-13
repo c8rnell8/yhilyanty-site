@@ -9,14 +9,14 @@ import {
   readSnapshot,
   restoreBundle,
 } from "@/lib/backup";
-import { requireOwner } from "@/lib/cms/guard";
+import { requireRole } from "@/lib/cms/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET — list auto/manual snapshots kept on the server. */
 export async function GET() {
-  const guard = await requireOwner();
+  const guard = await requireRole("owner");
   if (guard) return guard;
   return NextResponse.json({ snapshots: await listSnapshots() });
 }
@@ -25,7 +25,7 @@ export async function GET() {
  *  POST { action: "restore", name } — roll back to a snapshot.
  *  DELETE handled below. */
 export async function POST(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("owner", req);
   if (guard) return guard;
   const session = await getSession();
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireOwner(req);
+  const guard = await requireRole("owner", req);
   if (guard) return guard;
   const name = new URL(req.url).searchParams.get("name") || "";
   await deleteSnapshot(name);

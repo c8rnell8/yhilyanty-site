@@ -3,7 +3,8 @@ import { setRequestLocale } from "next-intl/server";
 
 import { SystemPanel } from "@/components/admin/system-panel";
 import { readAudit } from "@/lib/audit";
-import { getSession, isOwner } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
+import { getRole, roleAtLeast } from "@/lib/roles";
 import { listSnapshots } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function AdminSystemRoute({
   const { locale } = await params;
   setRequestLocale(locale);
   const session = await getSession();
-  if (!isOwner(session)) redirect(`/${locale}/admin`);
+  if (!roleAtLeast(await getRole(session), "owner")) redirect(`/${locale}/admin`);
 
   return (
     <SystemPanel
