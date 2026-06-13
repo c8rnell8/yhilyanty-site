@@ -18,5 +18,5 @@ export default async function AdminTeamRoute({
   if (!isOwner(session)) redirect(`/${locale}/admin`);
 
   const store = await readTeamStore();
-  return <TeamPanel initialMembers={store.members} />;
+  return <TeamPanel locale={locale} initialMembers={store.members} />;
 }

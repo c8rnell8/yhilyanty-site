@@ -20,12 +20,52 @@ type MediaFile = {
   kind: "image" | "video";
 };
 
+const STR = {
+  ua: {
+    back: "← АДМІН-ПАНЕЛЬ",
+    title: "Медіатека",
+    subtitle:
+      "Фото, гіфки і відео до 50 МБ. Завантажуй скільки завгодно, копіюй посилання і встав його будь-де: у власну сторінку, кнопку чи меню.",
+    uploading: "ЗАВАНТАЖУЮ",
+    upload: "ЗАВАНТАЖИТИ ФАЙЛИ",
+    empty: "Поки що порожньо — натисни «Завантажити файли».",
+    video: "ВІДЕО",
+    photo: "ФОТО",
+    delConfirm: "Видалити файл з медіатеки? Якщо він десь вставлений на сайті — там він зникне.",
+  },
+  ru: {
+    back: "← АДМИН-ПАНЕЛЬ",
+    title: "Медиатека",
+    subtitle:
+      "Фото, гифки и видео до 50 МБ. Загружай сколько угодно, копируй ссылку и вставляй куда угодно: на свою страницу, кнопку или в меню.",
+    uploading: "ЗАГРУЖАЮ",
+    upload: "ЗАГРУЗИТЬ ФАЙЛЫ",
+    empty: "Пока пусто — нажми «Загрузить файлы».",
+    video: "ВИДЕО",
+    photo: "ФОТО",
+    delConfirm: "Удалить файл из медиатеки? Если он где-то вставлен на сайте — там он исчезнет.",
+  },
+  en: {
+    back: "← ADMIN PANEL",
+    title: "Media library",
+    subtitle:
+      "Photos, GIFs and video up to 50 MB. Upload as many as you like, copy the link and paste it anywhere: a page, a button or the menu.",
+    uploading: "UPLOADING",
+    upload: "UPLOAD FILES",
+    empty: "Empty so far — hit “Upload files”.",
+    video: "VIDEO",
+    photo: "PHOTO",
+    delConfirm: "Delete this file from the library? If it's used somewhere on the site it will disappear there.",
+  },
+} as const;
+
 function fmtSize(bytes: number): string {
   if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
   return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
 }
 
-export function MediaLibrary() {
+export function MediaLibrary({ locale }: { locale: string }) {
+  const t = STR[locale as keyof typeof STR] || STR.ua;
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [progress, setProgress] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -65,7 +105,7 @@ export function MediaLibrary() {
   }
 
   async function remove(name: string) {
-    if (!window.confirm("Видалити файл з медіатеки? Якщо він десь вставлений на сайті — там він зникне.")) return;
+    if (!window.confirm(t.delConfirm)) return;
     await fetch(`/api/admin/media?file=${encodeURIComponent(name)}`, { method: "DELETE" });
     refresh();
   }
@@ -86,12 +126,11 @@ export function MediaLibrary() {
             href="/admin"
             className="tactical-text text-[color:var(--muted-2)] hover:text-[color:var(--accent)]"
           >
-            ← АДМІН-ПАНЕЛЬ
+            {t.back}
           </Link>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Медіатека</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{t.title}</h1>
           <p className="text-sm text-[color:var(--muted-2)] max-w-2xl">
-            Фото, гіфки і відео до 50 МБ. Завантажуй скільки завгодно, копіюй
-            посилання і встав його будь-де: у власну сторінку, кнопку чи меню.
+            {t.subtitle}
           </p>
         </div>
         <input
@@ -111,12 +150,12 @@ export function MediaLibrary() {
           {progress ? (
             <>
               <CircleNotchIcon className="size-4 animate-spin" weight="bold" />
-              ЗАВАНТАЖУЮ {progress}
+              {t.uploading} {progress}
             </>
           ) : (
             <>
               <UploadSimpleIcon className="size-4" weight="bold" />
-              ЗАВАНТАЖИТИ ФАЙЛИ
+              {t.upload}
             </>
           )}
         </button>
@@ -131,7 +170,7 @@ export function MediaLibrary() {
       {files.length === 0 ? (
         <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] p-12 text-center text-[color:var(--muted-2)] flex flex-col items-center gap-3">
           <FilmStripIcon className="size-9" weight="bold" />
-          <span className="text-sm">Поки що порожньо — натисни «Завантажити файли».</span>
+          <span className="text-sm">{t.empty}</span>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -164,7 +203,7 @@ export function MediaLibrary() {
                   {f.name}
                 </span>
                 <span className="tactical-text text-[10px] text-[color:var(--muted)]">
-                  {f.kind === "video" ? "ВІДЕО" : "ФОТО"} · {fmtSize(f.bytes)}
+                  {f.kind === "video" ? t.video : t.photo} · {fmtSize(f.bytes)}
                 </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button

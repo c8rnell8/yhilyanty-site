@@ -17,5 +17,5 @@ export default async function AdminMediaRoute({
   const session = await getSession();
   if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
-  return <MediaLibrary />;
+  return <MediaLibrary locale={locale} />;
 }

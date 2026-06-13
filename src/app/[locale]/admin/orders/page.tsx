@@ -19,5 +19,5 @@ export default async function AdminOrdersRoute({
   if (!roleAtLeast(await getRole(session), "admin")) redirect(`/${locale}/admin`);
 
   const store = await readOrdersStore();
-  return <OrdersPanel initialOrders={store.orders} />;
+  return <OrdersPanel locale={locale} initialOrders={store.orders} />;
 }

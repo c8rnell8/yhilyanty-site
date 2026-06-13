@@ -14,12 +14,62 @@ import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import type { MerchOrder } from "@/lib/cms/store";
 
-const STATUS_LABEL: Record<MerchOrder["status"], string> = {
-  new: "НОВЕ",
-  seen: "ПЕРЕГЛЯНУТО",
-  done: "ВИКОНАНО",
-  cancelled: "СКАСОВАНО",
-};
+const STR = {
+  ua: {
+    back: "← АДМІН-ПАНЕЛЬ",
+    title: "Замовлення мерчу",
+    none: "Поки що замовлень немає.",
+    summary: (t: number, n: number, a: number) => `Всього: ${t}, нових: ${n}, в архіві: ${a}.`,
+    tabActive: (n: number) => `Активні (${n})`,
+    tabArchive: (n: number) => `Архів (${n})`,
+    emptyActive: "Активних замовлень немає.",
+    emptyArchive: "Архів порожній.",
+    sNew: "НОВЕ", sSeen: "ПЕРЕГЛЯНУТО", sDone: "ВИКОНАНО", sCancelled: "СКАСОВАНО",
+    seen: "Переглянуто", done: "Виконано", cancel: "Скасувати", restore: "Повернути",
+    toArchive: "Архів", fromArchive: "З архіву", del: "Видалити",
+    toArchiveT: "В архів", fromArchiveT: "Повернути з архіву", delT: "Видалити назавжди",
+    size: "розмір",
+    discord: "DISCORD", callsign: "ПОЗИВНИЙ", phone: "ТЕЛЕФОН", city: "МІСТО / НП",
+    delConfirm: "Видалити замовлення назавжди разом з прикріпленими фото? Це не можна скасувати.",
+    openPhoto: "Відкрити фото в повний розмір",
+  },
+  ru: {
+    back: "← АДМИН-ПАНЕЛЬ",
+    title: "Заказы мерча",
+    none: "Пока заказов нет.",
+    summary: (t: number, n: number, a: number) => `Всего: ${t}, новых: ${n}, в архиве: ${a}.`,
+    tabActive: (n: number) => `Активные (${n})`,
+    tabArchive: (n: number) => `Архив (${n})`,
+    emptyActive: "Активных заказов нет.",
+    emptyArchive: "Архив пуст.",
+    sNew: "НОВЫЙ", sSeen: "ПРОСМОТРЕНО", sDone: "ВЫПОЛНЕНО", sCancelled: "ОТМЕНЁН",
+    seen: "Просмотрено", done: "Выполнено", cancel: "Отменить", restore: "Вернуть",
+    toArchive: "Архив", fromArchive: "Из архива", del: "Удалить",
+    toArchiveT: "В архив", fromArchiveT: "Вернуть из архива", delT: "Удалить навсегда",
+    size: "размер",
+    discord: "DISCORD", callsign: "ПОЗЫВНОЙ", phone: "ТЕЛЕФОН", city: "ГОРОД / НП",
+    delConfirm: "Удалить заказ навсегда вместе с прикреплёнными фото? Это нельзя отменить.",
+    openPhoto: "Открыть фото в полный размер",
+  },
+  en: {
+    back: "← ADMIN PANEL",
+    title: "Merch orders",
+    none: "No orders yet.",
+    summary: (t: number, n: number, a: number) => `Total: ${t}, new: ${n}, archived: ${a}.`,
+    tabActive: (n: number) => `Active (${n})`,
+    tabArchive: (n: number) => `Archive (${n})`,
+    emptyActive: "No active orders.",
+    emptyArchive: "Archive is empty.",
+    sNew: "NEW", sSeen: "SEEN", sDone: "DONE", sCancelled: "CANCELLED",
+    seen: "Seen", done: "Done", cancel: "Cancel", restore: "Reopen",
+    toArchive: "Archive", fromArchive: "Unarchive", del: "Delete",
+    toArchiveT: "To archive", fromArchiveT: "Restore from archive", delT: "Delete permanently",
+    size: "size",
+    discord: "DISCORD", callsign: "CALLSIGN", phone: "PHONE", city: "CITY / DEPOT",
+    delConfirm: "Delete this order forever along with attached photos? This cannot be undone.",
+    openPhoto: "Open photo full size",
+  },
+} as const;
 
 const STATUS_CLASS: Record<MerchOrder["status"], string> = {
   new: "bg-[color:var(--accent-soft)] text-[color:var(--accent)] border-[color:var(--accent)]/30",
@@ -28,7 +78,18 @@ const STATUS_CLASS: Record<MerchOrder["status"], string> = {
   cancelled: "bg-rose-500/15 text-rose-300 border-rose-500/30",
 };
 
-export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) {
+export function OrdersPanel({
+  locale,
+  initialOrders,
+}: {
+  locale: string;
+  initialOrders: MerchOrder[];
+}) {
+  const t = STR[locale as keyof typeof STR] || STR.ua;
+  const dtLoc = locale === "ru" ? "ru-RU" : locale === "en" ? "en-US" : "uk-UA";
+  const statusLabel: Record<MerchOrder["status"], string> = {
+    new: t.sNew, seen: t.sSeen, done: t.sDone, cancelled: t.sCancelled,
+  };
   const [orders, setOrders] = useState(initialOrders);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -66,9 +127,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
     call("PATCH", id, { id, archived });
   const removeOrder = (id: string) => {
     if (
-      window.confirm(
-        "Видалити замовлення назавжди разом з прикріпленими фото? Це не можна скасувати.",
-      )
+      window.confirm(t.delConfirm)
     )
       call("DELETE", id);
   };
@@ -85,23 +144,23 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
           href="/admin"
           className="tactical-text text-[color:var(--muted-2)] hover:text-[color:var(--accent)]"
         >
-          ← АДМІН-ПАНЕЛЬ
+          {t.back}
         </Link>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-          Замовлення мерчу
+          {t.title}
         </h1>
         <p className="text-sm text-[color:var(--muted-2)]">
           {orders.length === 0
-            ? "Поки що замовлень немає."
-            : `Всього: ${orders.length}, нових: ${fresh}, в архіві: ${archived.length}.`}
+            ? t.none
+            : t.summary(orders.length, fresh, archived.length)}
         </p>
       </div>
 
       <div className="flex items-center gap-2 mb-6">
         {(
           [
-            ["active", `Активні (${active.length})`],
-            ["archive", `Архів (${archived.length})`],
+            ["active", t.tabActive(active.length)],
+            ["archive", t.tabArchive(archived.length)],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -127,7 +186,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
 
       {shown.length === 0 && (
         <div className="rounded-sm border border-[color:var(--border)] bg-[color:var(--background-elev)] p-8 text-center text-[color:var(--muted-2)] text-sm">
-          {tab === "active" ? "Активних замовлень немає." : "Архів порожній."}
+          {tab === "active" ? t.emptyActive : t.emptyArchive}
         </div>
       )}
 
@@ -147,13 +206,13 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded-sm font-mono uppercase text-[10px] tracking-[0.16em] border ${STATUS_CLASS[o.status]}`}
                   >
-                    {STATUS_LABEL[o.status]}
+                    {statusLabel[o.status]}
                   </span>
                 </div>
                 <span className="font-mono text-xs text-[color:var(--muted)]">
-                  {o.id} · {new Date(o.createdAt).toLocaleString("uk-UA")}
+                  {o.id} · {new Date(o.createdAt).toLocaleString(dtLoc)}
                   {o.price ? ` · ${o.price}` : ""}
-                  {o.size ? ` · розмір ${o.size}` : ""}
+                  {o.size ? ` · ${t.size} ${o.size}` : ""}
                 </span>
               </div>
               <div className="flex gap-2 flex-wrap">
@@ -170,7 +229,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                         className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-cyan-500/40 hover:text-cyan-300 transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                       >
                         <EyeIcon className="size-3.5" weight="bold" />
-                        Переглянуто
+                        {t.seen}
                       </button>
                     )}
                     {o.status !== "done" && o.status !== "cancelled" && (
@@ -181,7 +240,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                           className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-emerald-500/40 hover:text-emerald-300 transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                         >
                           <CheckCircleIcon className="size-3.5" weight="bold" />
-                          Виконано
+                          {t.done}
                         </button>
                         <button
                           type="button"
@@ -189,7 +248,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                           className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-rose-500/40 hover:text-rose-300 transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                         >
                           <XCircleIcon className="size-3.5" weight="bold" />
-                          Скасувати
+                          {t.cancel}
                         </button>
                       </>
                     )}
@@ -200,27 +259,27 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                         className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--accent)] transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                       >
                         <ArrowCounterClockwiseIcon className="size-3.5" weight="bold" />
-                        Повернути
+                        {t.restore}
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => setArchived(o.id, !o.archived)}
-                      title={o.archived ? "Повернути з архіву" : "В архів"}
+                      title={o.archived ? t.fromArchiveT : t.toArchiveT}
                       className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-[color:var(--accent)]/40 hover:text-[color:var(--accent)] transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                     >
                       <ArchiveIcon className="size-3.5" weight="bold" />
-                      {o.archived ? "З архіву" : "Архів"}
+                      {o.archived ? t.fromArchive : t.toArchive}
                     </button>
                     {o.archived && (
                       <button
                         type="button"
                         onClick={() => removeOrder(o.id)}
-                        title="Видалити назавжди"
+                        title={t.delT}
                         className="inline-flex items-center gap-1 px-3 h-8 rounded-sm border border-[color:var(--border)] hover:border-rose-500/40 hover:text-rose-300 transition-colors text-xs font-mono uppercase tracking-[0.1em]"
                       >
                         <TrashIcon className="size-3.5" weight="bold" />
-                        Видалити
+                        {t.del}
                       </button>
                     )}
                   </>
@@ -230,19 +289,19 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
 
             <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
               <div className="flex flex-col">
-                <span className="tactical-text text-[color:var(--muted)]">DISCORD</span>
+                <span className="tactical-text text-[color:var(--muted)]">{t.discord}</span>
                 <span className="font-mono">{o.discord || "—"}</span>
               </div>
               <div className="flex flex-col">
-                <span className="tactical-text text-[color:var(--muted)]">ПОЗИВНИЙ</span>
+                <span className="tactical-text text-[color:var(--muted)]">{t.callsign}</span>
                 <span className="font-mono">{o.callsign || "—"}</span>
               </div>
               <div className="flex flex-col">
-                <span className="tactical-text text-[color:var(--muted)]">ТЕЛЕФОН</span>
+                <span className="tactical-text text-[color:var(--muted)]">{t.phone}</span>
                 <span className="font-mono">{o.phone || "—"}</span>
               </div>
               <div className="flex flex-col">
-                <span className="tactical-text text-[color:var(--muted)]">МІСТО / НП</span>
+                <span className="tactical-text text-[color:var(--muted)]">{t.city}</span>
                 <span>{o.city || "—"}</span>
               </div>
             </div>
@@ -261,7 +320,7 @@ export function OrdersPanel({ initialOrders }: { initialOrders: MerchOrder[] }) 
                     href={`/api/admin/orders/image/${f}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Відкрити фото в повний розмір"
+                    title={t.openPhoto}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
