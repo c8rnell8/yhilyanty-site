@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auditLog } from "@/lib/audit";
 import { getSession, isOwner } from "@/lib/auth";
+import { maybeAutoSnapshot } from "@/lib/backup";
 import { getRole, roleAtLeast, type Role } from "@/lib/roles";
 
 /** Every authorized write is journaled: method + path + who. Route handlers
@@ -13,6 +14,8 @@ function logWrite(
   try {
     const url = new URL(req.url);
     void auditLog(s, `${req.method} ${url.pathname}`);
+    // Opportunistic daily backup — no cron needed on the box.
+    void maybeAutoSnapshot();
   } catch {
     // never let logging break the request
   }

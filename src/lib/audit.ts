@@ -37,7 +37,7 @@ export async function auditLog(
   }
 }
 
-export async function readAudit(limit = 300): Promise<AuditEntry[]> {
+export async function readAudit(limit = 1000): Promise<AuditEntry[]> {
   try {
     const raw = await fs.readFile(AUDIT_FILE, "utf8");
     const lines = raw.split("\n").filter(Boolean);
