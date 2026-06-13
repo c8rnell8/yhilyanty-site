@@ -52,3 +52,4 @@ next-env.d.ts
 /.cms-overrides/ai-chats/
 /.cms-overrides/media/
 /.cms-overrides/order-uploads/
+/.server.log
