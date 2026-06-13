@@ -13,6 +13,14 @@ function isExternal(href: string): boolean {
   return /^https?:\/\//i.test(href) || href.startsWith("mailto:");
 }
 
+/** Only let through schemes we trust. Blocks javascript:/data: links that
+ *  could otherwise smuggle XSS into page content written by an editor. */
+function safeHref(href: string): string {
+  const h = href.trim();
+  if (/^(https?:\/\/|mailto:|\/|#)/i.test(h)) return h;
+  return "#";
+}
+
 /** Very small markdown-lite: blank lines → paragraphs, `**bold**`, `*italic*`, `[text](url)`. */
 function renderRichText(src: string): React.ReactNode {
   const paragraphs = src.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
@@ -35,7 +43,7 @@ function renderInline(text: string): React.ReactNode {
       parts.push(
         <a
           key={k++}
-          href={m[2]}
+          href={safeHref(m[2])}
           target={isExternal(m[2]) ? "_blank" : undefined}
           rel={isExternal(m[2]) ? "noopener noreferrer" : undefined}
           className="text-[color:var(--accent)] underline hover:text-[color:var(--accent-hard)]"
@@ -97,7 +105,7 @@ export function BlockRenderer({
     }
     case "cta": {
       const label = pick(block.label, locale) || "→";
-      const href = block.href || "#";
+      const href = safeHref(block.href || "#");
       const ext = block.external || isExternal(href);
       const cls =
         block.variant === "ghost"
