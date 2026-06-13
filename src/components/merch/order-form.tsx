@@ -56,9 +56,15 @@ export function OrderForm({
   const discordPrefill = session ? `${session.username}${session.id ? ` (${session.id})` : ""}` : "";
   const callsignPrefill = discordDisplayName(session) || "";
 
+  // Only show hCaptcha when a real sitekey is configured. The 1000...0001 key
+  // is hCaptcha's public test key — it renders a confusing red "test" warning,
+  // so in dev / no-key setups we skip the widget and lean on rate-limiting.
+  const siteKey = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY || "";
+  const captchaOn = siteKey.length > 0 && !siteKey.startsWith("10000000");
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!captchaToken) {
+    if (captchaOn && !captchaToken) {
       setError("Подтвердите, что вы человек!");
       return;
     }
@@ -162,18 +168,20 @@ export function OrderForm({
         )}
       </div>
 
-      <div className="flex justify-center">
-        <HCaptcha
-          sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY || "10000000-ffff-ffff-ffff-000000000001"}
-          onVerify={setCaptchaToken}
-          ref={captchaRef}
-          theme="dark"
-        />
-      </div>
+      {captchaOn && (
+        <div className="flex justify-center">
+          <HCaptcha
+            sitekey={siteKey}
+            onVerify={setCaptchaToken}
+            ref={captchaRef}
+            theme="dark"
+          />
+        </div>
+      )}
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
-      <button type="submit" disabled={status === "submitting" || !captchaToken} className="bg-[color:var(--accent)] text-black p-3 font-bold uppercase tracking-widest hover:bg-[color:var(--accent-hard)] transition-colors disabled:opacity-50">
+      <button type="submit" disabled={status === "submitting" || (captchaOn && !captchaToken)} className="bg-[color:var(--accent)] text-black p-3 font-bold uppercase tracking-widest hover:bg-[color:var(--accent-hard)] transition-colors disabled:opacity-50">
         {status === "submitting" ? "Отправка..." : s.submit}
       </button>
     </form>

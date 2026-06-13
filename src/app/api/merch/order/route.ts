@@ -63,30 +63,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  // captcha first
-  const token = body.captchaToken;
-  // The form falls back to hCaptcha's public test sitekey, so the server has
-  // to fall back to the matching test secret or local orders never pass.
-  const secret =
-    process.env.HCAPTCHA_SECRET ||
-    "0x0000000000000000000000000000000000000000";
-
-  if (!token || typeof token !== "string") {
-    return NextResponse.json({ error: "Подтвердите капчу!" }, { status: 400 });
-  }
-
-  try {
-    const verify = await fetch("https://hcaptcha.com/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ response: token, secret }).toString(),
-    });
-    const verification = await verify.json();
-    if (!verification.success) {
-      return NextResponse.json({ error: "Капча не пройдена" }, { status: 400 });
+  // Captcha is only enforced when a real hCaptcha secret is configured.
+  // Without it (dev / no-key) we skip verification and rely on the rate
+  // limiter + cross-origin check above.
+  const secret = process.env.HCAPTCHA_SECRET;
+  if (secret) {
+    const token = body.captchaToken;
+    if (!token || typeof token !== "string") {
+      return NextResponse.json({ error: "Подтвердите капчу!" }, { status: 400 });
     }
-  } catch (e) {
-    return NextResponse.json({ error: "Ошибка проверки капчи" }, { status: 500 });
+    try {
+      const verify = await fetch("https://hcaptcha.com/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ response: token, secret }).toString(),
+      });
+      const verification = await verify.json();
+      if (!verification.success) {
+        return NextResponse.json({ error: "Капча не пройдена" }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Ошибка проверки капчи" }, { status: 500 });
+    }
   }
 
   const itemKey = String(body.itemKey || "").toLowerCase();

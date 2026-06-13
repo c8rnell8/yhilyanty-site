@@ -197,12 +197,23 @@ export function AiAssistant({
 
   async function deleteChat(id: string) {
     if (!window.confirm(t.delChat)) return;
-    await fetch(`/api/admin/chats/${id}`, { method: "DELETE" });
+    // Optimistically drop it from the list, then confirm with the server.
+    setChats((prev) => prev.filter((c) => c.id !== id));
     if (activeId === id) {
       setActiveId(null);
       setMessages([]);
     }
-    refreshChats();
+    try {
+      const res = await fetch(`/api/admin/chats/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      refreshChats();
+    }
   }
 
   function attachFiles(list: FileList | null) {
@@ -356,13 +367,15 @@ export function AiAssistant({
                 <span className="flex-1 min-w-0 truncate text-sm">{c.title}</span>
                 <button
                   type="button"
+                  aria-label="delete chat"
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     deleteChat(c.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 text-[color:var(--muted)] hover:text-rose-300"
+                  className="shrink-0 p-1 text-[color:var(--muted-2)] hover:text-rose-300"
                 >
-                  <TrashIcon className="size-3.5" weight="bold" />
+                  <TrashIcon className="size-4" weight="bold" />
                 </button>
               </div>
             ))}

@@ -14,6 +14,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { avatarUrl, getSession } from "@/lib/auth";
 import { getRole, roleAtLeast, type Role } from "@/lib/roles";
+import { readOrdersStore } from "@/lib/cms/store";
 import { Link } from "@/i18n/navigation";
 
 export default async function AdminPage({
@@ -27,6 +28,16 @@ export default async function AdminPage({
 
   const session = await getSession();
   const role = await getRole(session);
+
+  // Unhandled-orders count for the notification badge.
+  let newOrders = 0;
+  if (roleAtLeast(role, "admin")) {
+    const store = await readOrdersStore().catch(() => null);
+    newOrders = store
+      ? store.orders.filter((o) => !o.archived && o.status === "new").length
+      : 0;
+  }
+  const badges: Partial<Record<string, number>> = { orders: newOrders };
 
   if (!role) {
     return (
@@ -145,8 +156,13 @@ export default async function AdminPage({
             href={href}
             className="group rounded-sm border border-[color:var(--accent)]/40 bg-[color:var(--accent-soft)]/40 p-5 flex items-start gap-4 hover:border-[color:var(--accent)] transition-colors"
           >
-            <div className="size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
+            <div className="relative size-12 rounded-sm bg-[color:var(--accent)] flex items-center justify-center shrink-0">
               <Icon className="size-6 text-black" weight="bold" />
+              {(badges[key] ?? 0) > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white text-[11px] font-bold flex items-center justify-center border-2 border-[color:var(--background)]">
+                  {badges[key]}
+                </span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
