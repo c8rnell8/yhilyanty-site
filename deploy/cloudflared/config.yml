@@ -1,0 +1,16 @@
+# /etc/cloudflared/config.yml
+# Cloudflare Tunnel — all inbound traffic arrives through Cloudflare's edge,
+# so the VPS's real IP is never exposed and ports 80/443 can be closed.
+#
+# Replace <TUNNEL_ID> and the hostname. The credentials JSON is created by
+# `cloudflared tunnel create` (see deploy/cloudflared/README.md).
+
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Public hostname → the site, served only on localhost by Next.js/nginx.
+  - hostname: yhil.example.com
+    service: http://127.0.0.1:3000
+  # Everything else gets refused.
+  - service: http_status:404

@@ -1,0 +1,67 @@
+# Hardened compose for the site + bot. Run from the yhilyanty-site repo root:
+#   docker compose -f deploy/docker/docker-compose.yml up -d --build
+#
+# Assumes the bot repo sits next to the site repo (../yhilbot), matching the
+# E:\CLAUDE layout. Secrets come from the two env files (chmod 600, gitignored).
+#
+# Hardening applied to every service:
+#   - non-root user (baked into the images)
+#   - read_only root filesystem; only declared volumes/tmpfs are writable
+#   - no-new-privileges (a process can't gain privileges via setuid binaries)
+#   - cap_drop ALL (no Linux capabilities)
+#   - CPU + memory limits (a runaway/abused service can't starve the box)
+
+services:
+  site:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.site
+    restart: unless-stopped
+    env_file:
+      - ../../.env.production
+    ports:
+      - "127.0.0.1:3000:3000" # only nginx/cloudflared on the host reaches it
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    volumes:
+      - cms-data:/app/.cms-overrides
+      - editor-sessions:/app/.editor-sessions
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ua').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  bot:
+    build:
+      context: ../../../yhilbot
+      dockerfile: ../yhilyanty-site/deploy/docker/Dockerfile.bot
+    restart: unless-stopped
+    env_file:
+      - ../../../yhilbot/yhil.env
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp/yhil_work
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+volumes:
+  cms-data:
+  editor-sessions:

@@ -1,0 +1,64 @@
+name: Security
+
+# Runs on every push and PR. Layered checks: dependency CVEs (SCA),
+# leaked-secret scanning, and an optional SonarCloud SAST hook.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # --- SCA: Node dependencies ------------------------------------------------
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Fail the build only on high/critical vulnerabilities.
+      - name: npm audit (high/critical)
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
+  # --- Secret scanning -------------------------------------------------------
+  # Catches an accidentally committed Discord client secret / bot token / API
+  # key before it ever lands on a public branch.
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE only needed for org accounts; personal repos are free.
+
+  # --- SAST: SonarCloud (optional) ------------------------------------------
+  # Set the SONAR_TOKEN secret and a sonar-project.properties file to enable.
+  # Skips cleanly when no token is configured, so it never blocks the pipeline.
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: SonarCloud scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: SonarCloud not configured
+        if: ${{ env.SONAR_TOKEN == '' }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: echo "SONAR_TOKEN not set — skipping SAST. Add it in repo Settings → Secrets to enable."

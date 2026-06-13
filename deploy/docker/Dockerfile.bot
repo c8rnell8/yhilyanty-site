@@ -1,0 +1,26 @@
+# Hardened image for the Python Discord bot (yhilbot).
+# Build context = the yhilbot repo root:
+#   docker build -f Dockerfile.bot -t yhil-bot .
+# (Or via docker-compose, which sets the context to ../yhilbot.)
+
+FROM python:3.12-slim-bookworm AS runtime
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
+
+# ffmpeg/ffprobe + Impact-like font for /caption /gif /edit.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install deps as root, then drop to a non-root system user.
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN groupadd --system --gid 1001 bot \
+ && useradd --system --uid 1001 --gid bot bot
+COPY --chown=bot:bot . .
+
+# Bot working dir (temp renders, sqlite). Overlaid by a volume in compose.
+RUN mkdir -p /tmp/yhil_work && chown -R bot:bot /tmp/yhil_work
+USER bot
+CMD ["python", "bot.py"]

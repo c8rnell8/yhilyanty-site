@@ -1,0 +1,45 @@
+# Hardened multi-stage image for the Next.js site.
+# Build context = the yhilyanty-site repo root:
+#   docker build -f deploy/docker/Dockerfile.site -t yhil-site .
+
+# ---- deps ----
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+
+# ---- build ----
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# ---- runtime ----
+FROM node:20-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
+
+# ffmpeg/ffprobe for the video editor; fonts for caption rendering.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+ && rm -rf /var/lib/apt/lists/*
+
+# Dedicated non-root system user — the container never runs as root.
+RUN groupadd --system --gid 1001 nodejs \
+ && useradd --system --uid 1001 --gid nodejs nextjs
+
+# Next.js "standalone" output bundles only what's needed.
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+
+# Writable dirs (the rest of the FS is read-only via compose). These get
+# overlaid by named volumes at runtime.
+RUN mkdir -p .cms-overrides .editor-sessions \
+ && chown -R nextjs:nodejs .cms-overrides .editor-sessions
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]

@@ -1,0 +1,36 @@
+# /etc/systemd/system/yhil-sentinel.service
+# Runs the security agent continuously. Needs root only to call cscli /
+# fail2ban-client / iptables for bans; everything else is read-only.
+#
+#   cp deploy/secops/sentinel.py /opt/yhil-sentinel/sentinel.py
+#   cp deploy/secops/sentinel.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now yhil-sentinel
+#   journalctl -u yhil-sentinel -f
+
+[Unit]
+Description=yhil-sentinel security agent
+After=network.target nginx.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/yhil-sentinel/sentinel.py
+Restart=always
+RestartSec=5
+
+# IMPORTANT: put YOUR own IP / admin CIDR here so you never ban yourself.
+Environment=SENTINEL_WHITELIST=127.0.0.1
+Environment=SENTINEL_ACCESS_LOG=/var/log/nginx/access.log
+Environment=SENTINEL_BAN_SECONDS=14400
+# Start in DRY_RUN to watch decisions for a day, then flip to 0 to enforce.
+Environment=SENTINEL_DRY_RUN=1
+# Optional: enable the daily AI threat summary in the journal.
+# Environment=GEMINI_API_KEY=...
+
+# Hardening for the unit itself.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/log
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

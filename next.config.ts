@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Self-contained server bundle for the hardened Docker image (deploy/docker).
+  // Harmless for the classic `npm run start` deploy.
+  output: "standalone",
   async headers() {
     return [
       {

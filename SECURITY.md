@@ -87,6 +87,16 @@ unattended-upgrades --dry-run -d
 
 `unattended-upgrades` ставит security-патчи сам. Раз в пару недель: `apt update && apt upgrade`.
 
+## Эшелонированная оборона — готовые конфиги (deploy/)
+
+Всё ниже — production-ready файлы в репозитории, бесплатные.
+
+- **CI/CD безопасности** — `.github/workflows/security.yml` (сайт: `npm audit` high/critical + Gitleaks + опц. SonarCloud) и такой же в репо бота (`pip-audit` + compile + Gitleaks). Запускается на каждый push/PR. SonarCloud включается добавлением секрета `SONAR_TOKEN`.
+- **Docker-изоляция** — `deploy/docker/`: образы сайта и бота от **non-root** пользователя, `read_only` ФС (запись только в тома `.cms-overrides` и логи), `no-new-privileges`, `cap_drop: ALL`, лимиты CPU/RAM. Запуск: `docker compose -f deploy/docker/docker-compose.yml up -d --build`.
+- **Cloudflare Tunnel** — `deploy/cloudflared/`: прячет реальный IP VPS, после настройки закрываешь 80/443 в ufw, наружу только SSH. Пошагово в `deploy/cloudflared/README.md`.
+- **Целостность хоста (AIDE)** — `deploy/secops/aide-setup.sh` (база) + `aide-check.sh` (ежедневный cron, алерт в Discord-webhook при изменении системных бинарников/конфигов nginx/кода).
+- **ИИ-агент безопасности** — `deploy/secops/sentinel.py` + `sentinel.service`: читает логи nginx, ловит то, что пропускает обычный rate-limit (перебор параметров, шторм 4xx, долбёжка авторизации, сигнатуры сканеров) и банит IP через CrowdSec → fail2ban → iptables. Стартует в `DRY_RUN=1` (только логирует) — посмотри сутки и переключи на enforcement. Опционально раз в день шлёт AI-сводку угроз через бесплатный Gemini. **Впиши свой IP в `SENTINEL_WHITELIST`, чтобы не забанить себя.**
+
 ## Если появятся деньги (опционально, не обязательно)
 
 Единственная вещь, которую нельзя закрыть бесплатно на 1-CPU сервере, — **мощный DDoS**. Лекарство — проксирование через Cloudflare, но оно требует своего домена (DuckDNS не даёт менять NS). Купив домен (~$10/год) и направив его на Cloudflare, получишь промышленную защиту от DDoS и WAF бесплатно поверх их сети.

@@ -1,0 +1,19 @@
+# /etc/systemd/system/cloudflared.service
+# Usually `cloudflared service install` writes this for you; included for
+# reference / manual setups.
+
+[Unit]
+Description=Cloudflare Tunnel
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/cloudflared --no-autoupdate --config /etc/cloudflared/config.yml tunnel run
+Restart=on-failure
+RestartSec=5
+User=cloudflared
+Group=cloudflared
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
