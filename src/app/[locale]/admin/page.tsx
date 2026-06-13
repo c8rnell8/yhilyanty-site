@@ -17,6 +17,7 @@ import {
   PackageIcon,
   UsersIcon,
   GearSixIcon,
+  FilmStripIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -135,13 +136,15 @@ export default async function AdminPage({
       | "ai"
       | "orders"
       | "team"
-      | "system";
+      | "system"
+      | "media";
     href: string;
     icon: typeof TextTIcon;
     min: Role;
   }[] = [
     { key: "content", href: "/admin/content", icon: TextTIcon, min: "editor" },
     { key: "images", href: "/admin/images", icon: ImageIcon, min: "editor" },
+    { key: "media", href: "/admin/media", icon: FilmStripIcon, min: "editor" },
     { key: "layout", href: "/admin/layout-editor", icon: StackIcon, min: "editor" },
     { key: "pages", href: "/admin/pages", icon: FileTextIcon, min: "editor" },
     { key: "nav", href: "/admin/nav", icon: TreeStructureIcon, min: "editor" },

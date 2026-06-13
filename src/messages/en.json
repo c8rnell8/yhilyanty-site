@@ -371,6 +371,10 @@
       "system": {
         "title": "System",
         "body": "Full site backup, restore and the team action log."
+      },
+      "media": {
+        "title": "Media library",
+        "body": "Upload photos, GIFs and video. Copy a link and paste it anywhere."
       }
     }
   },

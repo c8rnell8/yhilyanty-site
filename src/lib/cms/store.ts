@@ -24,6 +24,7 @@ export const PAGES_FILE = path.join(CMS_DIR, "pages.json");
 export const NAV_FILE = path.join(CMS_DIR, "nav.json");
 export const ORDERS_FILE = path.join(CMS_DIR, "merch-orders.json");
 export const ORDER_UPLOADS_DIR = path.join(CMS_DIR, "order-uploads");
+export const MEDIA_DIR = path.join(CMS_DIR, "media");
 
 export const MERCH_IDS = ["flag", "mug", "patches"] as const;
 export type MerchId = (typeof MERCH_IDS)[number];
