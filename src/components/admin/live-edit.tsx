@@ -29,6 +29,10 @@ const STRINGS: Record<string, Record<string, string>> = {
     keyLabel: "Ключ",
     newPage: "Нова сторінка",
     newPagePrompt: "Назва нової сторінки:",
+    tools: "Інструменти",
+    sections: "Секції головної",
+    pages: "Сторінки",
+    nav: "Меню та футер",
   },
   ru: {
     edit: "Редактировать сайт",
@@ -43,6 +47,10 @@ const STRINGS: Record<string, Record<string, string>> = {
     keyLabel: "Ключ",
     newPage: "Новая страница",
     newPagePrompt: "Название новой страницы:",
+    tools: "Инструменты",
+    sections: "Секции главной",
+    pages: "Страницы",
+    nav: "Меню и футер",
   },
   en: {
     edit: "Edit site",
@@ -57,6 +65,10 @@ const STRINGS: Record<string, Record<string, string>> = {
     keyLabel: "Key",
     newPage: "New page",
     newPagePrompt: "New page title:",
+    tools: "Tools",
+    sections: "Landing sections",
+    pages: "Pages",
+    nav: "Menu & footer",
   },
 };
 
@@ -76,6 +88,7 @@ export function LiveEdit({ locale }: { locale: string }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [draft, setDraft] = useState("");
   const [alsoTranslate, setAlsoTranslate] = useState(true);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -326,16 +339,46 @@ export function LiveEdit({ locale }: { locale: string }) {
       </button>
 
       {on && !editing && (
-        <button
-          type="button"
-          onClick={createPage}
-          className="fixed bottom-[4.5rem] right-5 z-[9990] h-10 px-3 rounded-sm bg-black/80 backdrop-blur border border-[color:var(--accent)]/50 text-[color:var(--accent)] text-xs font-mono uppercase tracking-[0.12em] inline-flex items-center gap-2 shadow-lg hover:border-[color:var(--accent)]"
-        >
-          <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
-            <path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z" />
-          </svg>
-          {t.newPage}
-        </button>
+        <div className="fixed bottom-[4.5rem] right-5 z-[9990] flex flex-col items-end gap-2">
+          {toolsOpen && (
+            <div className="flex flex-col gap-1 p-1 rounded-sm bg-black/90 backdrop-blur border border-[color:var(--border-strong)] shadow-xl min-w-[200px]">
+              {[
+                { label: t.sections, href: `/${locale}/admin/layout-editor` },
+                { label: t.pages, href: `/${locale}/admin/pages` },
+                { label: t.nav, href: `/${locale}/admin/nav` },
+              ].map((it) => (
+                <button
+                  key={it.href}
+                  type="button"
+                  onClick={() => router.push(it.href)}
+                  className="text-left px-3 h-9 rounded-sm text-sm text-[color:var(--muted-2)] hover:bg-[color:var(--accent-soft)] hover:text-[color:var(--accent)]"
+                >
+                  {it.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={createPage}
+                className="text-left px-3 h-9 rounded-sm text-sm text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] inline-flex items-center gap-2"
+              >
+                <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
+                  <path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z" />
+                </svg>
+                {t.newPage}
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setToolsOpen((v) => !v)}
+            className="h-10 px-3 rounded-sm bg-black/80 backdrop-blur border border-[color:var(--accent)]/50 text-[color:var(--accent)] text-xs font-mono uppercase tracking-[0.12em] inline-flex items-center gap-2 shadow-lg hover:border-[color:var(--accent)]"
+          >
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
+              <path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.21 107.21 0 0 0-10.88-26.25 8 8 0 0 0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186 40.54a8 8 0 0 0-3.94-6 107.71 107.71 0 0 0-26.25-10.87 8 8 0 0 0-7.06 1.49L130.16 40Q128 40 125.84 40L107.2 25.11a8 8 0 0 0-7.06-1.48A107.6 107.6 0 0 0 73.89 34.51a8 8 0 0 0-3.93 6L67.32 64.27q-1.56 1.49-3 3L40.54 70a8 8 0 0 0-6 3.94 107.71 107.71 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L40 125.84Q40 128 40 130.16L25.11 148.8a8 8 0 0 0-1.48 7.06 107.21 107.21 0 0 0 10.88 26.25 8 8 0 0 0 6 3.93l23.72 2.64q1.49 1.56 3 3L70 217.46a8 8 0 0 0 3.94 6 107.71 107.71 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216q2.16.06 4.32 0l18.64 14.92a8 8 0 0 0 7.06 1.48 107.21 107.21 0 0 0 26.25-10.88 8 8 0 0 0 3.93-6l2.64-23.72q1.56-1.48 3-3L217.46 186a8 8 0 0 0 6-3.94 107.71 107.71 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z" />
+            </svg>
+            {t.tools}
+          </button>
+        </div>
       )}
 
       {on && !editing && (

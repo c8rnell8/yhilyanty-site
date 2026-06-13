@@ -1,12 +1,8 @@
 import {
   DiscordLogoIcon,
   LockKeyIcon,
-  TextTIcon,
   ImageIcon,
   ArrowRightIcon,
-  StackIcon,
-  FileTextIcon,
-  TreeStructureIcon,
   RobotIcon,
   PackageIcon,
   UsersIcon,
@@ -101,15 +97,13 @@ export default async function AdminPage({
       | "system"
       | "media";
     href: string;
-    icon: typeof TextTIcon;
+    icon: typeof ImageIcon;
     min: Role;
   }[] = [
-    { key: "content", href: "/admin/content", icon: TextTIcon, min: "editor" },
+    // Texts, sections, pages and nav now live behind the "Edit site" button
+    // on the live site — no separate cards here anymore.
     { key: "images", href: "/admin/images", icon: ImageIcon, min: "editor" },
     { key: "media", href: "/admin/media", icon: FilmStripIcon, min: "editor" },
-    { key: "layout", href: "/admin/layout-editor", icon: StackIcon, min: "editor" },
-    { key: "pages", href: "/admin/pages", icon: FileTextIcon, min: "editor" },
-    { key: "nav", href: "/admin/nav", icon: TreeStructureIcon, min: "editor" },
     { key: "ai", href: "/admin/ai", icon: RobotIcon, min: "editor" },
     { key: "orders", href: "/admin/orders", icon: PackageIcon, min: "admin" },
     { key: "team", href: "/admin/team", icon: UsersIcon, min: "owner" },
