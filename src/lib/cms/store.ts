@@ -25,9 +25,23 @@ export const NAV_FILE = path.join(CMS_DIR, "nav.json");
 export const ORDERS_FILE = path.join(CMS_DIR, "merch-orders.json");
 export const ORDER_UPLOADS_DIR = path.join(CMS_DIR, "order-uploads");
 export const MEDIA_DIR = path.join(CMS_DIR, "media");
+export const MERCH_FILE = path.join(CMS_DIR, "merch.json");
 
 export const MERCH_IDS = ["flag", "mug", "patches"] as const;
 export type MerchId = (typeof MERCH_IDS)[number];
+
+// Admin-managed merch catalogue. Title/desc are trilingual; media is a list
+// of up to 5 image/gif/video URLs (from the media library or uploads).
+export type MerchProduct = {
+  id: string;
+  title: Multi;
+  desc: Multi;
+  price: string;
+  sizes: string[];
+  media: string[];
+  createdAt: number;
+};
+export type MerchStore = { products: MerchProduct[] };
 
 export type TextOverrides = Record<string, Record<string, string>>;
 export type ImageOverrides = Record<string, string>;
@@ -306,6 +320,44 @@ export function isValidMerchId(id: string): id is MerchId {
 
 export function listVisibleMerchIds(): MerchId[] {
   return [...MERCH_IDS];
+}
+
+// merch catalogue (admin-managed). Empty store ⇒ the public pages fall back to
+// the three legacy items, so the site looks identical until products are added.
+
+export async function readMerchStore(): Promise<MerchStore> {
+  return readJson<MerchStore>(MERCH_FILE, { products: [] });
+}
+
+export async function writeMerchStore(s: MerchStore): Promise<void> {
+  await withMutex(MERCH_FILE, () => writeJsonAtomic(MERCH_FILE, s));
+}
+
+export async function upsertMerchProduct(p: MerchProduct): Promise<MerchStore> {
+  return withMutex(MERCH_FILE, async () => {
+    const store = await readMerchStore();
+    const i = store.products.findIndex((x) => x.id === p.id);
+    if (i >= 0) store.products[i] = p;
+    else store.products.push(p);
+    await writeJsonAtomic(MERCH_FILE, store);
+    return store;
+  });
+}
+
+export async function deleteMerchProduct(id: string): Promise<MerchStore> {
+  return withMutex(MERCH_FILE, async () => {
+    const store = await readMerchStore();
+    store.products = store.products.filter((x) => x.id !== id);
+    await writeJsonAtomic(MERCH_FILE, store);
+    return store;
+  });
+}
+
+/** A product id is valid for ordering if it's a legacy id or a stored one. */
+export async function isOrderableMerchId(id: string): Promise<boolean> {
+  if (isValidMerchId(id)) return true;
+  const store = await readMerchStore();
+  return store.products.some((p) => p.id === id);
 }
 
 export async function readOrdersStore(): Promise<OrdersStore> {

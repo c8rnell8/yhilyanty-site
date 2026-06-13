@@ -4,8 +4,7 @@ import path from "node:path";
 
 import { rejectCrossOrigin } from "@/lib/cms/guard";
 import {
-  isValidMerchId,
-  listVisibleMerchIds,
+  isOrderableMerchId,
   ORDER_UPLOADS_DIR,
   type MerchOrder,
   writeMerchOrder,
@@ -87,8 +86,9 @@ export async function POST(req: Request) {
     }
   }
 
-  const itemKey = String(body.itemKey || "").toLowerCase();
-  if (!isValidMerchId(itemKey)) return NextResponse.json({ error: "Товар не найден" }, { status: 400 });
+  const itemKey = String(body.itemKey || "").trim();
+  if (!(await isOrderableMerchId(itemKey)))
+    return NextResponse.json({ error: "Товар не найден" }, { status: 400 });
 
   const orderId = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 

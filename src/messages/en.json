@@ -375,6 +375,10 @@
       "media": {
         "title": "Media library",
         "body": "Upload photos, GIFs and video. Copy a link and paste it anywhere."
+      },
+      "merch": {
+        "title": "Merch products",
+        "body": "Add and edit products: price, description, sizes, photo/gif/video."
       }
     },
     "liveEditHint": "Tip: open the site and hit “Edit site” at the bottom right — you can change any text or photo right on the page and create new pages with one button."

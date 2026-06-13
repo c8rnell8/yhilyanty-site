@@ -5,6 +5,7 @@ import {
   ArrowRightIcon,
   RobotIcon,
   PackageIcon,
+  StorefrontIcon,
   UsersIcon,
   GearSixIcon,
   FilmStripIcon,
@@ -106,7 +107,8 @@ export default async function AdminPage({
       | "orders"
       | "team"
       | "system"
-      | "media";
+      | "media"
+      | "merch";
     href: string;
     icon: typeof ImageIcon;
     min: Role;
@@ -116,6 +118,7 @@ export default async function AdminPage({
     { key: "images", href: "/admin/images", icon: ImageIcon, min: "editor" },
     { key: "media", href: "/admin/media", icon: FilmStripIcon, min: "editor" },
     { key: "ai", href: "/admin/ai", icon: RobotIcon, min: "editor" },
+    { key: "merch", href: "/admin/merch", icon: StorefrontIcon, min: "admin" },
     { key: "orders", href: "/admin/orders", icon: PackageIcon, min: "admin" },
     { key: "team", href: "/admin/team", icon: UsersIcon, min: "owner" },
     { key: "system", href: "/admin/system", icon: GearSixIcon, min: "owner" },
