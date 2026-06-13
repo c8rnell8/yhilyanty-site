@@ -39,7 +39,89 @@ const MAX_ATTACH = 4;
 const MAX_ATTACH_BYTES = 3 * 1024 * 1024;
 const ATTACH_MIMES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
-export function AiAssistant({ configured }: { configured: boolean }) {
+const STR = {
+  ua: {
+    back: "← АДМІН-ПАНЕЛЬ",
+    title: "AI-помічник",
+    subtitle:
+      "Питай як щось зробити, проси написати текст чи відразу зміни тексти сайту. Чати зберігаються — помічник памʼятає всю розмову. Приватні чати бачиш тільки ти, спільні — вся команда.",
+    keyMissing: "Ключ Gemini ще не налаштований. Отримай безкоштовний ключ на",
+    keyAdd: "і додай як",
+    privateChat: "Приватний",
+    teamChat: "Спільний",
+    noChats: "Чатів ще немає. Створи перший кнопкою вище.",
+    pickChat: "Обери чат зліва або створи новий, щоб почати розмову.",
+    loading: "Завантаження…",
+    firstMsg: "Напиши перше повідомлення.",
+    thinking: "думаю…",
+    newChatTitle: "Новий чат",
+    delChat: "Видалити цей чат разом з історією?",
+    onlyImages: "Можна прикріпити лише картинки (PNG, JPG, WebP, GIF).",
+    tooBig: (n: string) => `«${n}» завелика — максимум 3 МБ на картинку.`,
+    lookImage: "Подивись на зображення.",
+    attach: "Прикріпити картинку (до 4 шт, по 3 МБ)",
+    placePickChat: "Спочатку обери або створи чат",
+    placeMsg: "Напиши повідомлення…",
+    placeKey: "Спочатку налаштуй GEMINI_API_KEY",
+  },
+  ru: {
+    back: "← АДМИН-ПАНЕЛЬ",
+    title: "AI-помощник",
+    subtitle:
+      "Спрашивай, как что-то сделать, проси написать текст или сразу меняй тексты сайта. Чаты сохраняются — помощник помнит весь разговор. Приватные чаты видишь только ты, общие — вся команда.",
+    keyMissing: "Ключ Gemini ещё не настроен. Получи бесплатный ключ на",
+    keyAdd: "и добавь как",
+    privateChat: "Приватный",
+    teamChat: "Общий",
+    noChats: "Чатов ещё нет. Создай первый кнопкой выше.",
+    pickChat: "Выбери чат слева или создай новый, чтобы начать разговор.",
+    loading: "Загрузка…",
+    firstMsg: "Напиши первое сообщение.",
+    thinking: "думаю…",
+    newChatTitle: "Новый чат",
+    delChat: "Удалить этот чат вместе с историей?",
+    onlyImages: "Можно прикрепить только картинки (PNG, JPG, WebP, GIF).",
+    tooBig: (n: string) => `«${n}» слишком большая — максимум 3 МБ на картинку.`,
+    lookImage: "Посмотри на изображение.",
+    attach: "Прикрепить картинку (до 4 шт, по 3 МБ)",
+    placePickChat: "Сначала выбери или создай чат",
+    placeMsg: "Напиши сообщение…",
+    placeKey: "Сначала настрой GEMINI_API_KEY",
+  },
+  en: {
+    back: "← ADMIN PANEL",
+    title: "AI assistant",
+    subtitle:
+      "Ask how to do something, get copy written, or change the site texts directly. Chats are saved — the assistant remembers the whole conversation. Private chats are yours only, shared ones are for the whole team.",
+    keyMissing: "The Gemini key isn't set yet. Get a free key at",
+    keyAdd: "and add it as",
+    privateChat: "Private",
+    teamChat: "Shared",
+    noChats: "No chats yet. Create the first one above.",
+    pickChat: "Pick a chat on the left or create a new one to start.",
+    loading: "Loading…",
+    firstMsg: "Write the first message.",
+    thinking: "thinking…",
+    newChatTitle: "New chat",
+    delChat: "Delete this chat and its history?",
+    onlyImages: "You can attach images only (PNG, JPG, WebP, GIF).",
+    tooBig: (n: string) => `“${n}” is too big — 3 MB max per image.`,
+    lookImage: "Look at the image.",
+    attach: "Attach image (up to 4, 3 MB each)",
+    placePickChat: "Pick or create a chat first",
+    placeMsg: "Write a message…",
+    placeKey: "Set GEMINI_API_KEY first",
+  },
+} as const;
+
+export function AiAssistant({
+  locale,
+  configured,
+}: {
+  locale: string;
+  configured: boolean;
+}) {
+  const t = STR[locale as keyof typeof STR] || STR.ua;
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -101,7 +183,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
       const res = await fetch("/api/admin/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope, title: "Новий чат" }),
+        body: JSON.stringify({ scope, title: t.newChatTitle }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
@@ -114,7 +196,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
   }
 
   async function deleteChat(id: string) {
-    if (!window.confirm("Видалити цей чат разом з історією?")) return;
+    if (!window.confirm(t.delChat)) return;
     await fetch(`/api/admin/chats/${id}`, { method: "DELETE" });
     if (activeId === id) {
       setActiveId(null);
@@ -129,11 +211,11 @@ export function AiAssistant({ configured }: { configured: boolean }) {
     const files = Array.from(list).slice(0, MAX_ATTACH - pending.length);
     for (const f of files) {
       if (!ATTACH_MIMES.includes(f.type)) {
-        setErr("Можна прикріпити лише картинки (PNG, JPG, WebP, GIF).");
+        setErr(t.onlyImages);
         continue;
       }
       if (f.size > MAX_ATTACH_BYTES) {
-        setErr(`«${f.name}» завелика — максимум 3 МБ на картинку.`);
+        setErr(t.tooBig(f.name));
         continue;
       }
       const reader = new FileReader();
@@ -162,7 +244,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
     const sentImages = pending;
     const userMsg: Msg = {
       role: "user",
-      text: trimmed || "Подивись на зображення.",
+      text: trimmed || t.lookImage,
       images: sentImages.length ? sentImages : undefined,
     };
     const next = [...messages, userMsg];
@@ -202,13 +284,11 @@ export function AiAssistant({ configured }: { configured: boolean }) {
           href="/admin"
           className="tactical-text text-[color:var(--muted-2)] hover:text-[color:var(--accent)]"
         >
-          ← АДМІН-ПАНЕЛЬ
+          {t.back}
         </Link>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">AI-помічник</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{t.title}</h1>
         <p className="text-sm text-[color:var(--muted-2)] max-w-2xl">
-          Питай як щось зробити, проси написати текст чи відразу зміни тексти
-          сайту. Чати зберігаються — помічник памʼятає всю розмову. Приватні
-          чати бачиш тільки ти, спільні — вся команда.
+          {t.subtitle}
         </p>
       </div>
 
@@ -216,7 +296,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
         <div className="mb-6 px-4 py-3 rounded-sm border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm flex items-start gap-2">
           <WarningCircleIcon className="size-5 shrink-0 mt-0.5" weight="fill" />
           <span>
-            Ключ Gemini ще не налаштований. Отримай безкоштовний ключ на{" "}
+            {t.keyMissing}{" "}
             <a
               href="https://aistudio.google.com/apikey"
               target="_blank"
@@ -225,7 +305,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
             >
               aistudio.google.com/apikey
             </a>{" "}
-            і додай як <code className="font-mono">GEMINI_API_KEY</code>.
+            {t.keyAdd} <code className="font-mono">GEMINI_API_KEY</code>.
           </span>
         </div>
       )}
@@ -240,7 +320,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
               className="tactical-text inline-flex items-center justify-center gap-1.5 h-10 rounded-sm bg-[color:var(--accent)] text-black font-bold hover:bg-[color:var(--accent-hard)]"
             >
               <PlusIcon className="size-4" weight="bold" />
-              Приватний
+              {t.privateChat}
             </button>
             <button
               type="button"
@@ -248,14 +328,14 @@ export function AiAssistant({ configured }: { configured: boolean }) {
               className="tactical-text inline-flex items-center justify-center gap-1.5 h-10 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40"
             >
               <UsersThreeIcon className="size-4" weight="bold" />
-              Спільний
+              {t.teamChat}
             </button>
           </div>
 
           <div className="flex flex-col gap-1 max-h-[55vh] overflow-y-auto">
             {chats.length === 0 && (
               <p className="text-xs text-[color:var(--muted)] p-3">
-                Чатів ще немає. Створи перший кнопкою вище.
+                {t.noChats}
               </p>
             )}
             {chats.map((c) => (
@@ -298,17 +378,17 @@ export function AiAssistant({ configured }: { configured: boolean }) {
                   <RobotIcon className="size-7 text-[color:var(--accent)]" weight="bold" />
                 </div>
                 <p className="text-sm text-[color:var(--muted-2)]">
-                  Обери чат зліва або створи новий, щоб почати розмову.
+                  {t.pickChat}
                 </p>
               </div>
             ) : loadingChat ? (
               <div className="m-auto text-[color:var(--muted-2)] inline-flex items-center gap-2">
                 <CircleNotchIcon className="size-4 animate-spin" weight="bold" />
-                Завантаження…
+                {t.loading}
               </div>
             ) : messages.length === 0 ? (
               <div className="m-auto text-sm text-[color:var(--muted-2)] text-center">
-                Напиши перше повідомлення.
+                {t.firstMsg}
               </div>
             ) : (
               messages.map((m, i) => (
@@ -379,7 +459,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
                 </div>
                 <div className="rounded-sm px-3 py-2 bg-black/30 border border-[color:var(--border)] inline-flex items-center gap-2 text-[color:var(--muted-2)]">
                   <CircleNotchIcon className="size-4 animate-spin" weight="bold" />
-                  <span className="text-sm">думаю…</span>
+                  <span className="text-sm">{t.thinking}</span>
                 </div>
               </div>
             )}
@@ -433,7 +513,7 @@ export function AiAssistant({ configured }: { configured: boolean }) {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={!configured || busy || !activeId || pending.length >= MAX_ATTACH}
-              title="Прикріпити картинку (до 4 шт, по 3 МБ)"
+              title={t.attach}
               className="shrink-0 inline-flex items-center justify-center size-10 rounded-sm border border-[color:var(--border-strong)] text-[color:var(--muted-2)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)]/40 disabled:opacity-40"
             >
               <ImageSquareIcon className="size-5" weight="bold" />
@@ -457,10 +537,10 @@ export function AiAssistant({ configured }: { configured: boolean }) {
               rows={1}
               placeholder={
                 !activeId
-                  ? "Спочатку обери або створи чат"
+                  ? t.placePickChat
                   : configured
-                    ? "Напиши повідомлення…"
-                    : "Спочатку налаштуй GEMINI_API_KEY"
+                    ? t.placeMsg
+                    : t.placeKey
               }
               className="flex-1 resize-none max-h-32 px-3 py-2 rounded-sm bg-black/40 border border-[color:var(--border-strong)] text-sm focus:border-[color:var(--accent)] outline-none disabled:opacity-50"
             />

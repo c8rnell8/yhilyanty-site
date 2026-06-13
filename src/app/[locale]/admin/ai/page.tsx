@@ -18,5 +18,5 @@ export default async function AdminAiRoute({
   const session = await getSession();
   if (!roleAtLeast(await getRole(session), "editor")) redirect(`/${locale}/admin`);
 
-  return <AiAssistant configured={geminiConfigured()} />;
+  return <AiAssistant locale={locale} configured={geminiConfigured()} />;
 }
