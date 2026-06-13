@@ -147,6 +147,34 @@ export function BlockRenderer({
         </figure>
       );
     }
+    case "video": {
+      if (!block.src) return null;
+      const caption = pick(block.caption, locale);
+      const isVid = /\.(mp4|webm)$/i.test(block.src);
+      return (
+        <figure className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-10 py-8">
+          <div className="relative w-full rounded-sm overflow-hidden border border-[color:var(--border)] bg-black">
+            {isVid ? (
+              <video
+                src={block.src}
+                controls
+                playsInline
+                className="w-full max-h-[70vh]"
+              />
+            ) : (
+              // a GIF — render as a plain looping image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={block.src} alt={caption || ""} className="w-full object-contain" />
+            )}
+          </div>
+          {caption && (
+            <figcaption className="mt-3 text-center text-xs text-[color:var(--muted)] font-mono uppercase tracking-[0.18em]">
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
     case "gallery": {
       if (!block.items || block.items.length === 0) return null;
       return (

@@ -58,6 +58,7 @@ export type Block =
   | { id: string; type: "rich-text"; body?: Multi }
   | { id: string; type: "cta"; label?: Multi; href?: string; variant?: "primary" | "ghost"; external?: boolean }
   | { id: string; type: "image"; src?: string; alt?: string; caption?: Multi }
+  | { id: string; type: "video"; src?: string; caption?: Multi }
   | { id: string; type: "gallery"; items: { id: string; src: string; caption?: Multi }[] }
   | { id: string; type: "divider" };
 

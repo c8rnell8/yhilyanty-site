@@ -7,6 +7,7 @@ import {
   CheckCircleIcon,
   CircleNotchIcon,
   DotsSixVerticalIcon,
+  FilmStripIcon,
   ImageIcon,
   ImagesIcon,
   MinusIcon,
@@ -41,6 +42,7 @@ const BLOCK_META: Record<
   "rich-text": { label: "Текст / Параграф", icon: TextAlignLeftIcon },
   cta: { label: "CTA-кнопка", icon: ArrowSquareOutIcon },
   image: { label: "Зображення", icon: ImageIcon },
+  video: { label: "Відео / GIF", icon: FilmStripIcon },
   gallery: { label: "Галерея", icon: ImagesIcon },
   divider: { label: "Розділювач", icon: MinusIcon },
 };
@@ -56,6 +58,8 @@ function createBlock(type: Block["type"]): Block {
       return { id, type, label: {}, href: "", variant: "primary" };
     case "image":
       return { id, type, src: "", alt: "", caption: {} };
+    case "video":
+      return { id, type, src: "", caption: {} };
     case "gallery":
       return { id, type, items: [] };
     case "divider":
@@ -614,6 +618,43 @@ function BlockForm({
               className="h-10 px-3 rounded-sm bg-black/40 border border-[color:var(--border-strong)] text-sm focus:border-[color:var(--accent)] outline-none"
             />
           </label>
+          <MultiInput
+            label="Підпис (опціонально)"
+            value={block.caption}
+            onChange={(v) => onChange({ caption: v } as Partial<Block>)}
+          />
+        </div>
+      );
+    case "video":
+      return (
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[color:var(--muted)]">
+              URL відео (MP4/WebM) або GIF — завантаж у Медіатеку і встав посилання
+            </span>
+            <input
+              value={block.src || ""}
+              onChange={(e) => onChange({ src: e.target.value } as Partial<Block>)}
+              placeholder="/api/cms/media/clip.mp4 або https://..."
+              className="h-10 px-3 rounded-sm bg-black/40 border border-[color:var(--border-strong)] font-mono text-xs focus:border-[color:var(--accent)] outline-none"
+            />
+          </label>
+          {block.src &&
+            (/\.(mp4|webm)$/i.test(block.src) ? (
+              <video
+                src={block.src}
+                controls
+                muted
+                className="max-h-52 w-fit rounded-sm border border-[color:var(--border)]"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={block.src}
+                alt=""
+                className="max-h-52 w-fit rounded-sm border border-[color:var(--border)]"
+              />
+            ))}
           <MultiInput
             label="Підпис (опціонально)"
             value={block.caption}
