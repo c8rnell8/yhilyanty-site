@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 /** Click-to-edit mode for the live site.
  *
@@ -27,6 +27,8 @@ const STRINGS: Record<string, Record<string, string>> = {
     uploaded: "Картинку замінено",
     error: "Помилка",
     keyLabel: "Ключ",
+    newPage: "Нова сторінка",
+    newPagePrompt: "Назва нової сторінки:",
   },
   ru: {
     edit: "Редактировать сайт",
@@ -39,6 +41,8 @@ const STRINGS: Record<string, Record<string, string>> = {
     uploaded: "Картинка заменена",
     error: "Ошибка",
     keyLabel: "Ключ",
+    newPage: "Новая страница",
+    newPagePrompt: "Название новой страницы:",
   },
   en: {
     edit: "Edit site",
@@ -51,6 +55,8 @@ const STRINGS: Record<string, Record<string, string>> = {
     uploaded: "Image replaced",
     error: "Error",
     keyLabel: "Key",
+    newPage: "New page",
+    newPagePrompt: "New page title:",
   },
 };
 
@@ -71,6 +77,41 @@ export function LiveEdit({ locale }: { locale: string }) {
   const [draft, setDraft] = useState("");
   const [alsoTranslate, setAlsoTranslate] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function createPage() {
+    const title = window.prompt(t.newPagePrompt);
+    if (!title?.trim()) return;
+    setBusy(true);
+    try {
+      const slug =
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9а-яіїєґ]+/gi, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60) || `page-${Date.now().toString(36)}`;
+      const res = await fetch("/api/admin/pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          title: { [locale]: title.trim() },
+          blocks: [
+            { id: crypto.randomUUID(), type: "hero-lite", title: { [locale]: title.trim() } },
+            { id: crypto.randomUUID(), type: "rich-text", body: { [locale]: "" } },
+          ],
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`);
+      // Jump straight into the full page editor for the fresh page.
+      router.push(`/${locale}/admin/pages/${j.page.id}`);
+    } catch (e) {
+      flash(`${t.error}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const undoRef = useRef<(() => void)[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -283,6 +324,19 @@ export function LiveEdit({ locale }: { locale: string }) {
         </svg>
         {busy ? "..." : on ? t.exit : t.edit}
       </button>
+
+      {on && !editing && (
+        <button
+          type="button"
+          onClick={createPage}
+          className="fixed bottom-[4.5rem] right-5 z-[9990] h-10 px-3 rounded-sm bg-black/80 backdrop-blur border border-[color:var(--accent)]/50 text-[color:var(--accent)] text-xs font-mono uppercase tracking-[0.12em] inline-flex items-center gap-2 shadow-lg hover:border-[color:var(--accent)]"
+        >
+          <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor" aria-hidden>
+            <path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z" />
+          </svg>
+          {t.newPage}
+        </button>
+      )}
 
       {on && !editing && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9990] px-4 h-9 rounded-sm bg-black/80 backdrop-blur border border-[color:var(--border-strong)] text-[color:var(--muted-2)] text-xs font-mono flex items-center">
