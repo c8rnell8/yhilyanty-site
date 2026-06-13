@@ -49,6 +49,9 @@ type Crop = { x: number; y: number; w: number; h: number };
 
 type Tool = "trim" | "text" | "blur" | "crop" | "speed" | "audio" | "look" | "output";
 
+// Discord's attachment limit on an unboosted server — what the bot can post.
+const DISCORD_LIMIT_MB = 20;
+
 type Status =
   | "uploaded"
   | "editing"
@@ -484,6 +487,25 @@ export function Editor({
 
   const trimDuration = Math.max(0, trimOut - trimIn);
   const cursorRatio = source.duration > 0 ? currentTime / source.duration : 0;
+
+  // Rough pre-render size estimate so the user knows up front whether the bot
+  // can post the result to Discord. Real size is shown after render.
+  const estMB = useMemo(() => {
+    const outDur = Math.max(0.1, trimDuration / Math.max(0.1, speed));
+    if (targetSizeMB > 0) return targetSizeMB * 0.97; // we cap to this
+    const srcBytes = source.bytes || 0;
+    const srcDur = source.duration || outDur;
+    const srcBitrate = srcDur > 0 ? (srcBytes * 8) / srcDur : 0; // bits/s
+    let areaScale = 1;
+    if (maxWidth > 0 && source.width > 0) {
+      areaScale = Math.min(1, (maxWidth / source.width) ** 2);
+    }
+    if (crop) areaScale *= Math.max(0.05, crop.w * crop.h);
+    // re-encode quality factor per format (gif balloons, vp9/webp shrink)
+    const fmtFactor = format === "gif" ? 3 : format === "webm" ? 0.7 : 0.9;
+    const bits = srcBitrate * outDur * areaScale * fmtFactor;
+    return Math.max(0.05, bits / 8 / (1024 * 1024));
+  }, [trimDuration, speed, targetSizeMB, source, maxWidth, crop, format]);
 
   // Tool buttons
   const TOOLS: { key: Tool; label: string; icon: React.ReactNode }[] = useMemo(
@@ -1228,36 +1250,37 @@ export function Editor({
                     0 = {s.maxWidth.toLowerCase()} = source
                   </span>
                   {format === "mp4" && (
-                    <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={targetSizeMB === DISCORD_LIMIT_MB}
+                        onChange={(e) => setTargetSizeMB(e.target.checked ? DISCORD_LIMIT_MB : 0)}
+                        className="accent-[color:var(--accent)]"
+                      />
+                      {s.fitDiscord || "Стиснути під ліміт Discord (20 МБ)"}
+                    </label>
+                  )}
+
+                  {/* Estimated output size + whether the bot can post it */}
+                  <div className="rounded-sm border border-[color:var(--border-strong)] bg-black/30 p-3 flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
                       <span className="tactical-text text-[color:var(--muted-2)]">
-                        {s.sizeLimitLabel || "Ліміт розміру файлу"}
+                        {s.estSize || "Приблизний розмір"}
                       </span>
-                      <div className="grid grid-cols-4 gap-2">
-                        {([
-                          [0, s.noLimit || "Без ліміту"],
-                          [8, "8 МБ"],
-                          [20, "20 МБ"],
-                          [100, "100 МБ"],
-                        ] as [number, string][]).map(([mb, label]) => (
-                          <button
-                            key={mb}
-                            type="button"
-                            onClick={() => setTargetSizeMB(mb)}
-                            className={`h-10 rounded-sm border tactical-text text-[10px] ${
-                              targetSizeMB === mb
-                                ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-[color:var(--accent)]"
-                                : "border-[color:var(--border-strong)] text-[color:var(--muted-2)]"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <span className="tactical-text text-[10px] text-[color:var(--muted)]">
-                        {s.sizeLimitHint || "8 МБ — Discord без бустів, 20 МБ — бот, 100 МБ — сервер з бустами."}
+                      <span className="font-mono text-sm font-bold text-[color:var(--accent)]">
+                        ≈ {estMB.toFixed(estMB < 10 ? 1 : 0)} МБ
                       </span>
                     </div>
-                  )}
+                    <span
+                      className={`tactical-text text-[10px] ${
+                        estMB <= DISCORD_LIMIT_MB ? "text-emerald-300" : "text-amber-300"
+                      }`}
+                    >
+                      {estMB <= DISCORD_LIMIT_MB
+                        ? s.botSends || "Бот відправить файл прямо в чат"
+                        : s.botLink || "Завелике для бота — дасть посилання на завантаження"}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
